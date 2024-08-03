@@ -1,0 +1,16 @@
+{
+  "name": "appdate",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.12",
+    "vite": "^5.3.5",
+    "vitest": "^2.0.5"
+  }
+}
