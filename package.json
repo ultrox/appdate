@@ -1,16 +1,36 @@
 {
-  "name": "appdate",
-  "module": "index.ts",
+  "version": "0.0.1",
+  "name": "@ma.vu/appdate",
+  "private": false,
+  "main": "dist/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
+  "module": "dist/index.cjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.cjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [ "dist" ],
+  "scripts": {
+    "build": "tsup",
+    "test": "bun test"
+  },
   "devDependencies": {
-    "bun-types": "latest"
+    "bun-types": "latest",
+    "tsup": "~8.2.4",
+    "vite": "~5.3.5",
+    "vitest": "~2.0.5"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "dayjs": "^1.11.12",
-    "vite": "^5.3.5",
-    "vitest": "^2.0.5"
+    "dayjs": "~1.11.12"
   }
 }

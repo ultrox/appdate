@@ -2,8 +2,6 @@ import type { Dayjs, ManipulateType, OpUnitType } from 'dayjs';
 import dayjs from 'dayjs';
 import 'dayjs/locale/de';
 
-dayjs.locale(de.default);
-
 // https://github.com/iamkun/dayjs/issues/1167
 import customParseFormatPlugin from 'dayjs/plugin/customParseFormat.js';
 import isBetweenPlugin from 'dayjs/plugin/isBetween.js';
