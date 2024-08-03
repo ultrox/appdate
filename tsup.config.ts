@@ -19,7 +19,7 @@ export default defineConfig([
         js: '"use client";',
       };
     },
-    entry: ['./appdate.ts'],
+    entry: ['./src/index.ts'],
     outDir: 'dist',
   }
 ]);

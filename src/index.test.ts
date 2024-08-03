@@ -1,6 +1,6 @@
 import { expect, test, describe } from "bun:test";
 // import { expect, describe, test } from 'vitest';
-import { AppDate } from './appdate';
+import { AppDate } from './index';
 
 /**
  * @description this is just helper to test date
