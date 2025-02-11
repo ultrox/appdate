@@ -16,6 +16,28 @@ To use:
 ```
 npm install @ma.vu/appdate
 ```
+## How?
+The pattern follows the Builder/Factory pattern where:
+
+Static methods are the "builders" that create new instances
+```ts
+// These create NEW instances of AppDate
+static now(): AppDate
+static fromDateString(date: string): AppDate
+static fromLocalTime(time: string): AppDate
+static invalid(): AppDate
+```
+
+Instance methods are the "operators" that work with existing instances
+
+```ts
+// These operate on an EXISTING AppDate instance
+add(value: number, unit?: ManipulateType): AppDate
+subtract(value: number, unit?: ManipulateType): AppDate
+isValid(): boolean
+toLocalTime(): string
+```
+
 
 ## Why Constructor is private?
 
