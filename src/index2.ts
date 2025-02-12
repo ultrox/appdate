@@ -795,10 +795,11 @@ export class AppDate {
   /**
    * Formats the date using the specified format template.
    *
+   * @link https://day.js.org/docs/en/display/format
    * @param template - The format template string.
    * @returns The formatted date string.
    */
-  format(template?: FormatTemplate): string {
+  format(template: FormatTemplate = 'YYYY-MM-DDTHH:mm:ssZ[Z]'): string {
     return this.formatter.format(template);
   }
 
