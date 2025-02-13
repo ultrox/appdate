@@ -341,9 +341,8 @@ export class AppDate {
     return this.dayjsDate.format(template);
   }
 
-  formatShort({ includeDayOfWeek = true }: LocalizedFormatOptions = {}) {
-    const short = this.format('DD.MM.');
-    return includeDayOfWeek ? this.format('dd, ') + short : short;
+ formatShort({ includeDayOfWeek = true }: LocalizedFormatOptions = {}) {
+    return includeDayOfWeek ? this.format('dd, DD.MM.') : this.format('DD.MM.');
   }
 
   formatDateTime({ includeDayOfWeek = true }: LocalizedFormatOptions = {}) {
