@@ -315,10 +315,10 @@ class DateFormatter {
    * @param options - Optional formatting options.
    * @returns The formatted short date string.
    */
-  formatShort(options: LocalizedFormatOptions = { includeDayOfWeek: true }): string {
-    const short = this.date.format('DD.MM.');
-    return options.includeDayOfWeek ? this.date.format('dd, ') + short : short;
-  }
+formatShort(options: LocalizedFormatOptions = { includeDayOfWeek: true }): string {
+  const formatStr = options.includeDayOfWeek ? 'dd, DD.MM.' : 'DD.MM.';
+  return this.date.format(formatStr);
+}
 
   /**
    * Combines localized date string and local time into a single formatted string.
