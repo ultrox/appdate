@@ -21,11 +21,13 @@
   ],
   "scripts": {
     "build": "tsup",
-    "test": "bun test"
+    "test": "bun test",
+    "docs": "typedoc src/index.ts"
   },
   "devDependencies": {
     "bun-types": "latest",
     "tsup": "~8.2.4",
+    "typedoc": "~0.28.15",
     "vite": "~5.3.5",
     "vitest": "~2.0.5"
   },

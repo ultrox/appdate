@@ -1,13 +1,13 @@
-import type { Dayjs, ManipulateType, OpUnitType } from 'dayjs';
-import dayjs from 'dayjs';
-import 'dayjs/locale/de';
+import type { Dayjs, ManipulateType, OpUnitType } from "dayjs";
+import dayjs from "dayjs";
+import "dayjs/locale/de";
 
 // https://github.com/iamkun/dayjs/issues/1167
-import customParseFormatPlugin from 'dayjs/plugin/customParseFormat.js';
-import isBetweenPlugin from 'dayjs/plugin/isBetween.js';
-import localizedFormat from 'dayjs/plugin/localizedFormat.js';
-import timezonePlugin from 'dayjs/plugin/timezone.js';
-import utcPlugin from 'dayjs/plugin/utc.js';
+import customParseFormatPlugin from "dayjs/plugin/customParseFormat.js";
+import isBetweenPlugin from "dayjs/plugin/isBetween.js";
+import localizedFormat from "dayjs/plugin/localizedFormat.js";
+import timezonePlugin from "dayjs/plugin/timezone.js";
+import utcPlugin from "dayjs/plugin/utc.js";
 
 dayjs.extend(utcPlugin);
 dayjs.extend(timezonePlugin);
@@ -22,28 +22,28 @@ dayjs.extend(localizedFormat);
  * de: 10.10.2010
  * en: 10/10/2010
  */
-export async function setAppDateLanguage(lang: 'de' | 'en' | 'fr') {
+export async function setAppDateLanguage(lang: "de" | "en" | "fr") {
   switch (lang) {
-    case 'de': {
-      const de = await import('dayjs/locale/de-ch');
+    case "de": {
+      const de = await import("dayjs/locale/de-ch");
       dayjs.locale(de.default);
       break;
     }
-    case 'fr': {
-      const fr = await import('dayjs/locale/fr-ch');
+    case "fr": {
+      const fr = await import("dayjs/locale/fr-ch");
       dayjs.locale(fr.default);
       break;
     }
-    case 'en':
+    case "en":
     default: {
-      const en = await import('dayjs/locale/en');
+      const en = await import("dayjs/locale/en");
       dayjs.locale(en.default);
       break;
     }
   }
 }
 
-let localTimezone = 'Europe/Zurich';
+let localTimezone = "Europe/Zurich";
 /**
  * Change zone in runtime
  */
@@ -53,8 +53,8 @@ export function setTimezone(timezone: string) {
 
 type DateString = `${string}-${string}-${string}`; // YYYY-MM-DD
 
-const LOCAL_TIME_FORMAT = 'HH:mm';
-const UTC_TIME_FORMAT = 'HH:mm:ssZ';
+const LOCAL_TIME_FORMAT = "HH:mm";
+const UTC_TIME_FORMAT = "HH:mm:ssZ";
 
 /**
  * AppDate: A timezone-aware date and time abstraction.
@@ -85,7 +85,7 @@ const UTC_TIME_FORMAT = 'HH:mm:ssZ';
 export class AppDate {
   readonly timezone: string;
   readonly dayjsDate: Dayjs;
-  private static readonly INVALID_DATE = dayjs('');
+  private static readonly INVALID_DATE = dayjs("");
 
   /**
    * constructor is private, so new LocalString("something")
@@ -105,12 +105,12 @@ export class AppDate {
     // try/catch due to bug in dayjs.tz that crashes the app:
     // https://github.com/iamkun/dayjs/issues/1637
     try {
-      if (typeof date === 'string' && !isDateString(date)) {
-        throw new Error('Invalid Date string, we expect YYYY-DD-MM');
+      if (typeof date === "string" && !isDateString(date)) {
+        throw new Error("Invalid Date string, we expect YYYY-DD-MM");
       }
       this.dayjsDate = dayjs.tz(date, timezone);
     } catch (e) {
-      console.warn('Could not parse date:', date);
+      console.warn("Could not parse date:", date);
       this.dayjsDate = AppDate.INVALID_DATE;
     }
   }
@@ -121,7 +121,7 @@ export class AppDate {
    * null object pattern and plays nicely with validation
    */
   static invalid() {
-    return new AppDate(localTimezone, '', { invalid: true });
+    return new AppDate(localTimezone, "", { invalid: true });
   }
 
   static now() {
@@ -144,6 +144,40 @@ export class AppDate {
     return new AppDate(localTimezone, date);
   }
 
+  /**
+   * Creates a AppDate instance from a epoch seconds.
+   *
+   * @param seconds - A number representing a epoch seconds.
+   * @returns A new AppDate instance set to the given epoch seconds.
+   *
+   * @example
+   * ```typescript
+   * const date = AppDate.fromEpochSeconds(1714732800);
+   * console.log(date.toLocalizedDateString()); // "04.01.2026"
+   * ```
+   */
+  static fromEpochSeconds(seconds: number): AppDate {
+    const date = dayjs.unix(seconds);
+    return new AppDate(localTimezone, date);
+  }
+
+  /**
+   * Creates a AppDate instance from a epoch milliseconds.
+   *
+   * @param ms - A number representing a epoch milliseconds.
+   * @returns A new AppDate instance set to the given epoch milliseconds.
+   *
+   * @example
+   * ```typescript
+   * const date = AppDate.fromEpochMillis(1714732800000);
+   * console.log(date.toLocalizedDateString()); // "04.01.2026"
+   * ```
+  }
+  */
+  static fromEpochMillis(ms: number): AppDate {
+    const date = dayjs(ms);
+    return new AppDate(localTimezone, date);
+  }
   /**
    * Creates a AppDate instance from a local time string.
    *
@@ -168,22 +202,61 @@ export class AppDate {
     }
   }
 
+  /**
+   *
+   * @param date - A string representing a UTC date in "YYYY-MM-DD" format.
+   * @returns A new AppDate instance set to the given UTC date.
+   *
+   * @example
+   * const date = AppDate.fromUtcString("2026-01-04");
+   * console.log(date.toLocalizedDateString()); // "04.01.2026"
+   * ```
+   */
   static fromUtcString(date?: string) {
     const utcdate = dayjs.utc(date);
     return new AppDate(localTimezone, utcdate);
   }
 
+  /**
+   * Creates a AppDate instance from a UTC time string.
+   *
+   * @param time - A string representing a UTC time in "HH:mm:ssZ" format.
+   * @returns A new AppDate instance set to the given UTC time.
+   *
+   * @example
+   * const time = AppDate.fromUtcTime("14:30:00+00:00");
+   * console.log(time.toLocalizedDateString()); // "04.01.2026"
+   * ```
+   */
   static fromUtcTime(time: string) {
     const date = dayjs.utc(time, UTC_TIME_FORMAT);
     return new AppDate(localTimezone, date);
   }
-
+  /**
+   *
+   * @returns A new AppDate instance set to the minimum supported date (1900-01-01).
+   *
+   * @example
+   * const minDate = AppDate.minDate();
+   * console.log(minDate.toLocalizedDateString()); // "01.01.1900"
+   * ```
+   */
   static minDate() {
-    return AppDate.fromDateString('1900-01-01');
+    return AppDate.fromDateString("1900-01-01");
   }
 
+  /**
+   * Returns the maximum supported date (2200-12-31).
+   *
+   * @returns A new AppDate instance set to the maximum supported date.
+   *
+   * @example
+   * const maxDate = AppDate.maxDate();
+   * console.log(maxDate.toLocalizedDateString()); // "31.12.2200"
+   * ```
+   */
   static maxDate() {
-    return AppDate.fromDateString('2200-12-31');
+    return AppDate.fromDateString("2200-12-31");
   }
 
   add(value: number, unit?: ManipulateType) {
@@ -207,7 +280,7 @@ export class AppDate {
   }
 
   tomorrow() {
-    return this.add(1, 'day');
+    return this.add(1, "day");
   }
 
   isValid() {
@@ -226,7 +299,7 @@ export class AppDate {
    * returns true if date is current day
    */
   isToday() {
-    return this.dayjsDate.endOf('d').isSame(dayjs().endOf('d'));
+    return this.dayjsDate.endOf("d").isSame(dayjs().endOf("d"));
   }
 
   isAfter(other: AppDate, unit?: OpUnitType) {
@@ -241,13 +314,13 @@ export class AppDate {
     // '()' excludes start and end date (default)
     // '[]' includes start and end date
     // '[)' includes the start date but excludes the stop
-    inclusivity?: `${'(' | '['}${')' | ']'}`
+    inclusivity?: `${"(" | "["}${")" | "]"}`
   ) {
     return this.dayjsDate.isBetween(
       from.dayjsDate,
       to.dayjsDate,
       unit,
-      inclusivity ?? '[)'
+      inclusivity ?? "[)"
     );
   }
 
@@ -261,12 +334,12 @@ export class AppDate {
   }
 
   nextWorkingDay(): AppDate {
-    const tomorrow = this.add(1, 'day');
+    const tomorrow = this.add(1, "day");
     return tomorrow.isWorkingDay() ? tomorrow : tomorrow.nextWorkingDay();
   }
 
   previousWorkingDay(): AppDate {
-    const yesterday = this.subtract(1, 'day');
+    const yesterday = this.subtract(1, "day");
     return yesterday.isWorkingDay()
       ? yesterday
       : yesterday.previousWorkingDay();
@@ -297,9 +370,16 @@ export class AppDate {
 
   /**
    * Converts the current date to a string: YYYY-MM-DD
+   *
+   * @returns A string representing the current date in "YYYY-MM-DD" format.
+   *
+   * @example
+   * const date = AppDate.now();
+   * console.log(date.toDateString()); // "2026-01-04"
+   * ```
    */
   toDateString(): DateString {
-    return this.format('YYYY-MM-DD') as DateString;
+    return this.format("YYYY-MM-DD") as DateString;
   }
   /**
    * Locale friendly format: 
@@ -315,15 +395,15 @@ export class AppDate {
   toLocalizedDateString({
     includeDayOfWeek = false,
   }: LocalizedFormatOptions = {}) {
-    const localized = this.dayjsDate.format('L');
+    const localized = this.dayjsDate.format("L");
 
     return includeDayOfWeek
-      ? this.dayjsDate.format('dd, ') + localized
+      ? this.dayjsDate.format("dd, ") + localized
       : localized;
   }
 
   toUtcDateString(): DateString {
-    return this.dayjsDate.utc().format('YYYY-MM-DD') as DateString;
+    return this.dayjsDate.utc().format("YYYY-MM-DD") as DateString;
   }
 
   toUtcString() {
@@ -337,12 +417,23 @@ export class AppDate {
    * @see {@link https://day.js.org/docs/en/display/format|Day.js format documentation}
    *
    */
-  format(template: FormatTemplate = 'YYYY-MM-DDTHH:mm:ssZ[Z]') {
+  format(template: FormatTemplate = "YYYY-MM-DDTHH:mm:ssZ[Z]") {
     return this.dayjsDate.format(template);
   }
 
- formatShort({ includeDayOfWeek = true }: LocalizedFormatOptions = {}) {
-    return includeDayOfWeek ? this.format('dd, DD.MM.') : this.format('DD.MM.');
+  /**
+   *
+   * @param options - Optional settings for short formatting.
+   * @returns The short formatted date string.
+   *
+   * @example
+   * const date = AppDate.now();
+   * console.log(date.formatShort({ includeDayOfWeek: true })); // "Su, 04.01."
+   * console.log(date.formatShort({ includeDayOfWeek: false })); // "04.01."
+   * ```
+   */
+  formatShort({ includeDayOfWeek = true }: LocalizedFormatOptions = {}) {
+    return includeDayOfWeek ? this.format("dd, DD.MM.") : this.format("DD.MM.");
   }
 
   formatDateTime({ includeDayOfWeek = true }: LocalizedFormatOptions = {}) {
@@ -387,45 +478,45 @@ export function isDateString(
     return false;
   }
 
-  const parsedDate = dayjs(date, 'YYYY-MM-DD', true);
+  const parsedDate = dayjs(date, "YYYY-MM-DD", true);
   return parsedDate.isValid();
 }
 
 type FormatTemplate =
-  | 'YY'
-  | 'YYYY'
-  | 'M'
-  | 'MM'
-  | 'MMM'
-  | 'MMMM'
-  | 'D'
-  | 'DD'
-  | 'd'
-  | 'dd'
-  | 'ddd'
-  | 'dddd'
-  | 'H'
-  | 'HH'
-  | 'h'
-  | 'hh'
-  | 'm'
-  | 'mm'
-  | 's'
-  | 'ss'
-  | 'SSS'
-  | 'Z'
-  | 'ZZ'
-  | 'A'
-  | 'a'
+  | "YY"
+  | "YYYY"
+  | "M"
+  | "MM"
+  | "MMM"
+  | "MMMM"
+  | "D"
+  | "DD"
+  | "d"
+  | "dd"
+  | "ddd"
+  | "dddd"
+  | "H"
+  | "HH"
+  | "h"
+  | "hh"
+  | "m"
+  | "mm"
+  | "s"
+  | "ss"
+  | "SSS"
+  | "Z"
+  | "ZZ"
+  | "A"
+  | "a"
   /*  List of localized formats*/
-  | 'LT'
-  | 'LTS'
-  | /* en: 10/10/2020, de: 10.10.2020 */ 'L'
-  | 'LL'
-  | 'LLL'
-  | 'LLLL'
-  | 'l'
-  | 'll'
-  | 'lll'
-  | 'llll'
+  | "LT"
+  | "LTS"
+  | /* en: 10/10/2020, de: 10.10.2020 */ "L"
+  | "LL"
+  | "LLL"
+  | "LLLL"
+  | "l"
+  | "ll"
+  | "lll"
+  | "llll"
   | (string & {});
