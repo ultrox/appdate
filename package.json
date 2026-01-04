@@ -22,7 +22,9 @@
   "scripts": {
     "build": "tsup",
     "test": "bun test",
-    "docs": "typedoc src/index.ts"
+    "docs": "typedoc src/index.ts",
+    "bump": "npm version patch",
+    "prepublishOnly": "bun run build && bun run docs"
   },
   "devDependencies": {
     "bun-types": "latest",

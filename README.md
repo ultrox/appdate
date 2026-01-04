@@ -13,6 +13,8 @@ bun run index.ts
 ```
 
 To use: 
+- [docs](https://ultrox.github.io/appdate/classes/AppDate.html)
+
 ```
 npm install @ma.vu/appdate
 ```
