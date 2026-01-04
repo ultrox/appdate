@@ -409,6 +409,33 @@ export class AppDate {
   toUtcString() {
     return this.dayjsDate.utc().format();
   }
+
+  /**
+   * Converts the current date to a epoch seconds (unix timestamp).
+   *
+   * @returns The epoch seconds.
+   *
+   * @example
+   * const date = AppDate.now();
+   * console.log(date.toEpochSeconds()); // 1714732800
+   * ```
+   */
+  toEpochSeconds(): number {
+    return this.dayjsDate.unix();
+  }
+  /**
+   * Converts the current date to a epoch milliseconds (timestamp in milliseconds).
+   *
+   * @returns The epoch milliseconds.
+   *
+   * @example
+   * const date = AppDate.now();
+   * console.log(date.toEpochMillis()); // 1714732800000
+   * ```
+   */
+  toEpochMillis(): number {
+    return this.dayjsDate.valueOf();
+  }
   /**
    * Get the formatted date according to the string of tokens passed in.
    *
