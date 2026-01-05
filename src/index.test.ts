@@ -75,3 +75,30 @@ test('formatDateTime', () => {
   });
   expect(result).toBe('24.10.1985');
 });
+
+describe('serbian locales', () => {
+  test('sr (ekavian) formats days correctly', async () => {
+    await setAppDateLanguage('sr');
+    const monday = AppDate.fromDateString('2024-01-08');
+    expect(monday.format('dddd')).toBe('Ponedeljak');
+    expect(monday.format('dd')).toBe('po');
+  });
+
+  test('sr-ije (ijekavian) formats days correctly', async () => {
+    await setAppDateLanguage('sr-ije');
+    const monday = AppDate.fromDateString('2024-01-08');
+    const wednesday = AppDate.fromDateString('2024-01-10');
+    const sunday = AppDate.fromDateString('2024-01-07');
+
+    expect(monday.format('dddd')).toBe('Ponedjeljak');
+    expect(wednesday.format('dddd')).toBe('Srijeda');
+    expect(sunday.format('dddd')).toBe('Nedjelja');
+  });
+
+  test('sr-ije localized date format', async () => {
+    await setAppDateLanguage('sr-ije');
+    const date = AppDate.fromDateString('2024-01-11');
+    expect(date.toLocalizedDateString()).toBe('11.01.2024');
+    expect(date.toLocalizedDateString({ includeDayOfWeek: true })).toBe('če, 11.01.2024');
+  });
+});
