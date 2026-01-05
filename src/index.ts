@@ -22,7 +22,7 @@ dayjs.extend(localizedFormat);
  * de: 10.10.2010
  * en: 10/10/2010
  */
-export async function setAppDateLanguage(lang: "de" | "en" | "fr") {
+export async function setAppDateLanguage(lang: "de" | "en" | "fr" | "sr" | "sr-ije") {
   switch (lang) {
     case "de": {
       const de = await import("dayjs/locale/de-ch");
@@ -32,6 +32,17 @@ export async function setAppDateLanguage(lang: "de" | "en" | "fr") {
     case "fr": {
       const fr = await import("dayjs/locale/fr-ch");
       dayjs.locale(fr.default);
+      break;
+    }
+    case "sr": {
+      const sr = await import("dayjs/locale/sr");
+      dayjs.locale(sr.default);
+      break;
+    }
+    case "sr-ije": {
+      const srIje = await import("./sr-ijekavian");
+      dayjs.locale(srIje.default, undefined, true);
+      dayjs.locale("sr-ije");
       break;
     }
     case "en":
