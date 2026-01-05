@@ -76,6 +76,69 @@ test('formatDateTime', () => {
   expect(result).toBe('24.10.1985');
 });
 
+describe('fromEpochSeconds', () => {
+  test('creates date from unix timestamp', async () => {
+    await setAppDateLanguage('de');
+    const date = AppDate.fromEpochSeconds(1704067200); // 2024-01-01 00:00:00 UTC
+    expect(date.isValid()).toBe(true);
+    expect(date.toDateString()).toBe('2024-01-01');
+  });
+
+  test('handles zero timestamp (unix epoch)', () => {
+    const date = AppDate.fromEpochSeconds(0);
+    expect(date.isValid()).toBe(true);
+    expect(date.toDateString()).toBe('1970-01-01');
+  });
+});
+
+describe('fromUtcString', () => {
+  test('creates date from UTC date string', () => {
+    const date = AppDate.fromUtcString('2024-06-15');
+    expect(date.isValid()).toBe(true);
+    expect(date.toDateString()).toBe('2024-06-15');
+  });
+
+  test('creates current date when no argument passed', () => {
+    const date = AppDate.fromUtcString();
+    expect(date.isValid()).toBe(true);
+    expect(date.toDateString()).toBe(AppDate.now().toDateString());
+  });
+});
+
+describe('fromUtcTime', () => {
+  test('creates date from UTC time string', () => {
+    const date = AppDate.fromUtcTime('14:30:00+00:00');
+    expect(date.isValid()).toBe(true);
+    expect(date.toLocalTime()).toBe('15:30'); // UTC+1 (Europe/Zurich winter)
+  });
+
+  test('handles midnight UTC', () => {
+    const date = AppDate.fromUtcTime('00:00:00+00:00');
+    expect(date.isValid()).toBe(true);
+  });
+});
+
+describe('fromEpochMillis', () => {
+  test('creates date from milliseconds timestamp', () => {
+    const date = AppDate.fromEpochMillis(1704067200000); // 2024-01-01 00:00:00 UTC
+    expect(date.isValid()).toBe(true);
+    expect(date.toDateString()).toBe('2024-01-01');
+  });
+
+  test('handles zero timestamp (unix epoch)', () => {
+    const date = AppDate.fromEpochMillis(0);
+    expect(date.isValid()).toBe(true);
+    expect(date.toDateString()).toBe('1970-01-01');
+  });
+
+  test('roundtrips with toEpochMillis', () => {
+    const now = AppDate.now();
+    const millis = now.toEpochMillis();
+    const restored = AppDate.fromEpochMillis(millis);
+    expect(restored.toDateString()).toBe(now.toDateString());
+  });
+});
+
 describe('serbian locales', () => {
   test('sr (ekavian) formats days correctly', async () => {
     await setAppDateLanguage('sr');
