@@ -1,6 +1,10 @@
-import { expect, test, describe } from "bun:test";
+import { expect, test, describe, beforeAll } from "bun:test";
 // import { expect, describe, test } from 'vitest';
-import { AppDate } from './index';
+import { AppDate, setAppDateLanguage } from './index';
+
+beforeAll(async () => {
+  await setAppDateLanguage('de');
+});
 
 /**
  * @description this is just helper to test date
