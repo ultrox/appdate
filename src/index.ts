@@ -104,11 +104,7 @@ export class AppDate {
    * constructor is private, so new LocalString("something")
    * outside class is not posible
    */
-  private constructor(
-    timezone: string,
-    date: Dayjs | string,
-    { invalid } = { invalid: false }
-  ) {
+  private constructor(timezone: string, date: Dayjs | string, { invalid } = { invalid: false }) {
     this.timezone = timezone;
     if (invalid) {
       this.dayjsDate = AppDate.INVALID_DATE;
@@ -122,7 +118,7 @@ export class AppDate {
         throw new Error("Invalid Date string, we expect YYYY-DD-MM");
       }
       this.dayjsDate = dayjs.tz(date, timezone);
-    } catch (e) {
+    } catch (_e) {
       console.warn("Could not parse date:", date);
       this.dayjsDate = AppDate.INVALID_DATE;
     }
@@ -329,12 +325,7 @@ export class AppDate {
     // '[)' includes the start date but excludes the stop
     inclusivity?: `${"(" | "["}${")" | "]"}`
   ) {
-    return this.dayjsDate.isBetween(
-      from.dayjsDate,
-      to.dayjsDate,
-      unit,
-      inclusivity ?? "[)"
-    );
+    return this.dayjsDate.isBetween(from.dayjsDate, to.dayjsDate, unit, inclusivity ?? "[)");
   }
 
   isFirstDayOfWeek() {
@@ -353,9 +344,7 @@ export class AppDate {
 
   previousWorkingDay(): AppDate {
     const yesterday = this.subtract(1, "day");
-    return yesterday.isWorkingDay()
-      ? yesterday
-      : yesterday.previousWorkingDay();
+    return yesterday.isWorkingDay() ? yesterday : yesterday.previousWorkingDay();
   }
 
   addWorkingDays(days: number): AppDate {
@@ -405,14 +394,10 @@ export class AppDate {
 
    * ```
    */
-  toLocalizedDateString({
-    includeDayOfWeek = false,
-  }: LocalizedFormatOptions = {}) {
+  toLocalizedDateString({ includeDayOfWeek = false }: LocalizedFormatOptions = {}) {
     const localized = this.dayjsDate.format("L");
 
-    return includeDayOfWeek
-      ? this.dayjsDate.format("dd, ") + localized
-      : localized;
+    return includeDayOfWeek ? this.dayjsDate.format("dd, ") + localized : localized;
   }
 
   toUtcDateString(): DateString {
@@ -524,9 +509,7 @@ export class AppDate {
     if (options?.cap && diffDays >= options.cap) {
       const isPast = this.dayjsDate.isBefore(now);
       // Create a reference date at exactly `cap` days to get the localized format
-      const refDate = isPast
-        ? now.subtract(options.cap, "day")
-        : now.add(options.cap, "day");
+      const refDate = isPast ? now.subtract(options.cap, "day") : now.add(options.cap, "day");
       const refString = refDate.fromNow();
       // Replace the cap number with "cap+"
       return refString.replace(String(options.cap), `${options.cap}+`);
@@ -558,10 +541,7 @@ export interface GetNDaysOptions {
 // when we go international this needs to be configurable
 const workingDays = [1, 2, 3, 4, 5];
 
-export function getLocalizedDateString(
-  date: string,
-  options?: LocalizedFormatOptions
-) {
+export function getLocalizedDateString(date: string, options?: LocalizedFormatOptions) {
   return AppDate.fromDateString(date).toLocalizedDateString(options);
 }
 
@@ -573,9 +553,7 @@ export function formatLocalTime(time: string) {
  * returns true if given argument is in YYYY-MM-DD format
  * otherwise false
  */
-export function isDateString(
-  date: string | undefined | null | Dayjs
-): date is DateString {
+export function isDateString(date: string | undefined | null | Dayjs): date is DateString {
   if (!date) {
     return false;
   }

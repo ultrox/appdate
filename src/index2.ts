@@ -1,16 +1,16 @@
 /**
  * date/index.ts
  */
-import type { Dayjs, ManipulateType, OpUnitType } from 'dayjs';
-import dayjs from 'dayjs';
-import 'dayjs/locale/de';
+import type { Dayjs, ManipulateType, OpUnitType } from "dayjs";
+import dayjs from "dayjs";
+import "dayjs/locale/de";
 
 // https://github.com/iamkun/dayjs/issues/1167
-import customParseFormatPlugin from 'dayjs/plugin/customParseFormat.js';
-import isBetweenPlugin from 'dayjs/plugin/isBetween.js';
-import localizedFormat from 'dayjs/plugin/localizedFormat.js';
-import timezonePlugin from 'dayjs/plugin/timezone.js';
-import utcPlugin from 'dayjs/plugin/utc.js';
+import customParseFormatPlugin from "dayjs/plugin/customParseFormat.js";
+import isBetweenPlugin from "dayjs/plugin/isBetween.js";
+import localizedFormat from "dayjs/plugin/localizedFormat.js";
+import timezonePlugin from "dayjs/plugin/timezone.js";
+import utcPlugin from "dayjs/plugin/utc.js";
 
 dayjs.extend(utcPlugin);
 dayjs.extend(timezonePlugin);
@@ -37,47 +37,47 @@ interface LocalizedFormatOptions {
  * Format template type for date formatting.
  */
 type FormatTemplate =
-  | 'YY'
-  | 'YYYY'
-  | 'M'
-  | 'MM'
-  | 'MMM'
-  | 'MMMM'
-  | 'D'
-  | 'DD'
-  | 'd'
-  | 'dd'
-  | 'ddd'
-  | 'dddd'
-  | 'H'
-  | 'HH'
-  | 'h'
-  | 'hh'
-  | 'm'
-  | 'mm'
-  | 's'
-  | 'ss'
-  | 'SSS'
-  | 'Z'
-  | 'ZZ'
-  | 'A'
-  | 'a'
-  | 'LT'
-  | 'LTS'
-  | 'L'
-  | 'LL'
-  | 'LLL'
-  | 'LLLL'
-  | 'l'
-  | 'll'
-  | 'lll'
-  | 'llll'
+  | "YY"
+  | "YYYY"
+  | "M"
+  | "MM"
+  | "MMM"
+  | "MMMM"
+  | "D"
+  | "DD"
+  | "d"
+  | "dd"
+  | "ddd"
+  | "dddd"
+  | "H"
+  | "HH"
+  | "h"
+  | "hh"
+  | "m"
+  | "mm"
+  | "s"
+  | "ss"
+  | "SSS"
+  | "Z"
+  | "ZZ"
+  | "A"
+  | "a"
+  | "LT"
+  | "LTS"
+  | "L"
+  | "LL"
+  | "LLL"
+  | "LLLL"
+  | "l"
+  | "ll"
+  | "lll"
+  | "llll"
   | (string & {});
 
 // Constants
-const LOCAL_TIME_FORMAT = 'HH:mm';
-const UTC_TIME_FORMAT = 'HH:mm:ssZ';
-const INVALID_DATE = dayjs('');
+const LOCAL_TIME_FORMAT = "HH:mm";
+const UTC_TIME_FORMAT = "HH:mm:ssZ";
+const INVALID_DATE = dayjs("");
 const WORKING_DAYS = [1, 2, 3, 4, 5];
 
 /**
@@ -93,21 +93,21 @@ const WORKING_DAYS = [1, 2, 3, 4, 5];
 function getLocalizedInvalidDate(): string {
   const locale = dayjs.locale();
   switch (locale) {
-    case 'de':
-    case 'de-ch':
-    case 'de-at':
-      return 'Ungültiges Datum';
-    case 'fr':
-    case 'fr-ch':
-      return 'Date invalide';
+    case "de":
+    case "de-ch":
+    case "de-at":
+      return "Ungültiges Datum";
+    case "fr":
+    case "fr-ch":
+      return "Date invalide";
     default:
-      return 'Invalid Date';
+      return "Invalid Date";
   }
 }
 
 /**
  * Sets the application date language by dynamically importing and setting the locale.
- * 
+ *
  * Given a language string, the formatters, months, and weeks will be localized accordingly.
  * For example:
  * - de: 10.10.2010
@@ -115,21 +115,21 @@ function getLocalizedInvalidDate(): string {
  *
  * @param lang - The language code ('de', 'en', or 'fr').
  */
-export async function setAppDateLanguage(lang: 'de' | 'en' | 'fr') {
+export async function setAppDateLanguage(lang: "de" | "en" | "fr") {
   switch (lang) {
-    case 'de': {
-      const de = await import('dayjs/locale/de-ch');
+    case "de": {
+      const de = await import("dayjs/locale/de-ch");
       dayjs.locale(de.default);
       break;
     }
-    case 'fr': {
-      const fr = await import('dayjs/locale/fr-ch');
+    case "fr": {
+      const fr = await import("dayjs/locale/fr-ch");
       dayjs.locale(fr.default);
       break;
     }
-    case 'en':
+    case "en":
     default: {
-      const en = await import('dayjs/locale/en');
+      const en = await import("dayjs/locale/en");
       dayjs.locale(en.default);
       break;
     }
@@ -140,7 +140,7 @@ export async function setAppDateLanguage(lang: 'de' | 'en' | 'fr') {
  * Class to manage timezone configuration and validation.
  */
 class TimezoneManager {
-  private static timezone = 'Europe/Zurich';
+  private static timezone = "Europe/Zurich";
 
   /**
    * Sets the timezone to the provided value if it is valid.
@@ -239,7 +239,7 @@ class DateParser {
    */
   static isValidDateString(date: string | undefined | null | Dayjs): date is DateString {
     if (!date) return false;
-    return dayjs(date, 'YYYY-MM-DD', true).isValid();
+    return dayjs(date, "YYYY-MM-DD", true).isValid();
   }
 }
 
@@ -293,7 +293,7 @@ class DateFormatter {
     if (!this.date.isValid()) {
       return getLocalizedInvalidDate() as DateString;
     }
-    return this.date.format('YYYY-MM-DD') as DateString;
+    return this.date.format("YYYY-MM-DD") as DateString;
   }
 
   /**
@@ -303,10 +303,8 @@ class DateFormatter {
    * @returns The localized date string. If includeDayOfWeek is true, the day of the week is prefixed.
    */
   toLocalizedDateString(options: LocalizedFormatOptions = {}): string {
-    const localized = this.date.format('L');
-    return options.includeDayOfWeek
-      ? this.date.format('dd, ') + localized
-      : localized;
+    const localized = this.date.format("L");
+    return options.includeDayOfWeek ? this.date.format("dd, ") + localized : localized;
   }
 
   /**
@@ -315,10 +313,10 @@ class DateFormatter {
    * @param options - Optional formatting options.
    * @returns The formatted short date string.
    */
-formatShort(options: LocalizedFormatOptions = { includeDayOfWeek: true }): string {
-  const formatStr = options.includeDayOfWeek ? 'dd, DD.MM.' : 'DD.MM.';
-  return this.date.format(formatStr);
-}
+  formatShort(options: LocalizedFormatOptions = { includeDayOfWeek: true }): string {
+    const formatStr = options.includeDayOfWeek ? "dd, DD.MM." : "DD.MM.";
+    return this.date.format(formatStr);
+  }
 
   /**
    * Combines localized date string and local time into a single formatted string.
@@ -338,7 +336,7 @@ formatShort(options: LocalizedFormatOptions = { includeDayOfWeek: true }): strin
    * @param template - The format template to use.
    * @returns The formatted date string.
    */
-  format(template: FormatTemplate = 'YYYY-MM-DDTHH:mm:ssZ[Z]'): string {
+  format(template: FormatTemplate = "YYYY-MM-DDTHH:mm:ssZ[Z]"): string {
     return this.date.format(template);
   }
 }
@@ -364,9 +362,9 @@ class WorkingDaysCalculator {
    * @returns A Dayjs object representing the next working day.
    */
   nextWorkingDay(): Dayjs {
-    let nextDay = this.date.add(1, 'day');
+    let nextDay = this.date.add(1, "day");
     while (!new WorkingDaysCalculator(nextDay).isWorkingDay()) {
-      nextDay = nextDay.add(1, 'day');
+      nextDay = nextDay.add(1, "day");
     }
     return nextDay;
   }
@@ -377,9 +375,9 @@ class WorkingDaysCalculator {
    * @returns A Dayjs object representing the previous working day.
    */
   previousWorkingDay(): Dayjs {
-    let prevDay = this.date.subtract(1, 'day');
+    let prevDay = this.date.subtract(1, "day");
     while (!new WorkingDaysCalculator(prevDay).isWorkingDay()) {
-      prevDay = prevDay.subtract(1, 'day');
+      prevDay = prevDay.subtract(1, "day");
     }
     return prevDay;
   }
@@ -416,13 +414,13 @@ class WorkingDaysCalculator {
  * // Creating dates
  * const today = AppDate.now();
  * const specificDate = AppDate.fromDateString('2024-02-11');
- * 
+ *
  * // Chaining operations
  * const nextWeek = AppDate.now()
  *   .add(7, 'days')
  *   .startOf('day')
  *   .toLocalizedDateString();
- * 
+ *
  * // Working with business days
  * const nextWorkingDay = AppDate.now()
  *   .nextWorkingDay()
@@ -446,10 +444,10 @@ export class AppDate {
    * @example
    * ```typescript
    * // Error handling
-   * const date = someCondition 
+   * const date = someCondition
    *   ? AppDate.fromDateString(validDate)
    *   : AppDate.invalid();
-   * 
+   *
    * if (!date.isValid()) {
    *   handleError();
    * }
@@ -468,10 +466,10 @@ export class AppDate {
    * ```typescript
    * // Get current date
    * const now = AppDate.now();
-   * 
+   *
    * // Check if another date is after now
    * const isFuture = someDate.isAfter(AppDate.now());
-   * 
+   *
    * // Format current date
    * const formatted = AppDate.now().toLocalizedDateString();
    * ```
@@ -490,12 +488,12 @@ export class AppDate {
    * ```typescript
    * // Create from string
    * const date = AppDate.fromDateString('2024-02-11');
-   * 
+   *
    * // Validate date
    * if (!date.isValid()) {
    *   throw new Error('Invalid date');
    * }
-   * 
+   *
    * // Chain operations
    * const nextDay = AppDate.fromDateString('2024-02-11')
    *   .add(1, 'day')
@@ -518,7 +516,7 @@ export class AppDate {
    * // Create from time
    * const time = AppDate.fromLocalTime('14:30');
    * console.log(time.toLocalTime()); // "14:30"
-   * 
+   *
    * // Chain with date operations
    * const laterToday = AppDate.fromLocalTime('14:30')
    *   .add(2, 'hours')
@@ -539,7 +537,7 @@ export class AppDate {
    * ```typescript
    * // Create from UTC string
    * const date = AppDate.fromUtcString('2024-02-11T12:00:00Z');
-   * 
+   *
    * // Convert to local time
    * console.log(date.toLocalTime());
    * ```
@@ -558,7 +556,7 @@ export class AppDate {
    * ```typescript
    * // Create from UTC time
    * const time = AppDate.fromUtcTime('14:30:00+00:00');
-   * 
+   *
    * // Get local representation
    * console.log(time.toLocalTime());
    * ```
@@ -582,7 +580,7 @@ export class AppDate {
    * ```
    */
   static minDate(): AppDate {
-    return AppDate.fromDateString('1900-01-01');
+    return AppDate.fromDateString("1900-01-01");
   }
 
   /**
@@ -593,13 +591,13 @@ export class AppDate {
    * @example
    * ```typescript
    * // Set a far future expiry date
-   * const expiry = someDate.isValid() 
-   *   ? someDate 
+   * const expiry = someDate.isValid()
+   *   ? someDate
    *   : AppDate.maxDate();
    * ```
    */
   static maxDate(): AppDate {
-    return AppDate.fromDateString('2200-12-31');
+    return AppDate.fromDateString("2200-12-31");
   }
 
   /**
@@ -613,7 +611,7 @@ export class AppDate {
    * ```typescript
    * // Add days
    * const tomorrow = AppDate.now().add(1, 'day');
-   * 
+   *
    * // Add multiple units
    * const future = AppDate.now()
    *   .add(1, 'month')
@@ -636,7 +634,7 @@ export class AppDate {
    * ```typescript
    * // Subtract days
    * const yesterday = AppDate.now().subtract(1, 'day');
-   * 
+   *
    * // Calculate age
    * const birthDate = AppDate.fromDateString('1990-01-01');
    * const age = AppDate.now().subtract(birthDate.dayjsDate.year(), 'year');
@@ -656,10 +654,10 @@ export class AppDate {
    * ```typescript
    * // Start of day (midnight)
    * const midnight = AppDate.now().startOf('day');
-   * 
+   *
    * // Start of month
    * const monthStart = AppDate.now().startOf('month');
-   * 
+   *
    * // Start of business week
    * const weekStart = AppDate.now()
    *   .startOf('week')
@@ -680,10 +678,10 @@ export class AppDate {
    * ```typescript
    * // End of day (23:59:59)
    * const endOfDay = AppDate.now().endOf('day');
-   * 
+   *
    * // End of month
    * const monthEnd = AppDate.now().endOf('month');
-   * 
+   *
    * // End of business week
    * const weekEnd = AppDate.now()
    *   .endOf('week')
@@ -706,10 +704,10 @@ export class AppDate {
    * if (!userDate.isValid()) {
    *   throw new Error('Invalid date');
    * }
-   * 
+   *
    * // Provide default for invalid date
-   * const date = userDate.isValid() 
-   *   ? userDate 
+   * const date = userDate.isValid()
+   *   ? userDate
    *   : AppDate.now();
    * ```
    */
@@ -799,7 +797,7 @@ export class AppDate {
    * @param template - The format template string.
    * @returns The formatted date string.
    */
-  format(template: FormatTemplate = 'YYYY-MM-DDTHH:mm:ssZ[Z]'): string {
+  format(template: FormatTemplate = "YYYY-MM-DDTHH:mm:ssZ[Z]"): string {
     return this.formatter.format(template);
   }
 
@@ -823,7 +821,7 @@ export class AppDate {
  * ```typescript
  * // Change timezone to New York
  * setTimezone('America/New_York');
- * 
+ *
  * // Will throw error
  * setTimezone('Invalid/Timezone');
  * ```
@@ -843,19 +841,16 @@ export function setTimezone(timezone: string): void {
  * ```typescript
  * // Basic usage
  * getLocalizedDateString('2024-02-11');  // e.g., "11.02.2024"
- * 
+ *
  * // With weekday
  * getLocalizedDateString('2024-02-11', { includeDayOfWeek: true });  // e.g., "Sun, 11.02.2024"
- * 
+ *
  * // Different locales (after setAppDateLanguage)
  * // German: "11.02.2024"
  * // English: "02/11/2024"
  * ```
  */
-export function getLocalizedDateString(
-  date: string,
-  options?: LocalizedFormatOptions
-): string {
+export function getLocalizedDateString(date: string, options?: LocalizedFormatOptions): string {
   return AppDate.fromDateString(date).toLocalizedDateString(options);
 }
 
@@ -892,7 +887,7 @@ export function formatLocalTime(time: string): string {
  *   .add(1, 'day')
  *   .startOf('day')
  *   .toLocalizedDateString();
- * 
+ *
  * // When you need to reuse the date
  * const appointmentDate = AppDate.fromDateString('2024-02-11');
  * const formatted = appointmentDate.toLocalizedDateString();

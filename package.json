@@ -22,12 +22,20 @@
   "scripts": {
     "build": "tsup",
     "test": "bun test",
+    "lint": "eslint src/",
+    "format": "prettier --check src/",
+    "format:fix": "prettier --write src/",
+    "validate": "bun run lint && bun run test && bun run format",
     "docs": "typedoc src/index.ts",
     "bump": "npm version patch",
     "prepublishOnly": "bun run build && bun run docs"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
     "bun-types": "latest",
+    "eslint": "^9.39.2",
+    "prettier": "^3.7.4",
     "tsup": "~8.2.4",
     "typedoc": "~0.28.15",
     "vite": "~5.3.5",
