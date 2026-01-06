@@ -165,3 +165,87 @@ describe('serbian locales', () => {
     expect(date.toLocalizedDateString({ includeDayOfWeek: true })).toBe('če, 11.01.2024');
   });
 });
+
+describe('toRelative', () => {
+  test('sr (ekavian) relative time in the past', async () => {
+    await setAppDateLanguage('sr');
+    const twoDaysAgo = AppDate.now().subtract(2, 'day');
+    expect(twoDaysAgo.toRelative()).toBe('pre 2 dana');
+  });
+
+  test('sr (ekavian) relative time in the future', async () => {
+    await setAppDateLanguage('sr');
+    const inTwoDays = AppDate.now().add(2, 'day');
+    expect(inTwoDays.toRelative()).toBe('za 2 dana');
+  });
+
+  test('sr-ije (ijekavian) relative time in the past', async () => {
+    await setAppDateLanguage('sr-ije');
+    const twoDaysAgo = AppDate.now().subtract(2, 'day');
+    expect(twoDaysAgo.toRelative()).toBe('prije 2 dana');
+  });
+
+  test('sr-ije (ijekavian) relative time in the future', async () => {
+    await setAppDateLanguage('sr-ije');
+    const inTwoDays = AppDate.now().add(2, 'day');
+    expect(inTwoDays.toRelative()).toBe('za 2 dana');
+  });
+
+  test('english relative time', async () => {
+    await setAppDateLanguage('en');
+    const threeDaysAgo = AppDate.now().subtract(3, 'day');
+    expect(threeDaysAgo.toRelative()).toBe('3 days ago');
+  });
+
+  test('caps at specified days (past)', async () => {
+    await setAppDateLanguage('en');
+    const fifteenDaysAgo = AppDate.now().subtract(15, 'day');
+    expect(fifteenDaysAgo.toRelative({ cap: 9 })).toBe('9+ days ago');
+  });
+
+  test('caps at specified days (future)', async () => {
+    await setAppDateLanguage('en');
+    const inFifteenDays = AppDate.now().add(15, 'day');
+    expect(inFifteenDays.toRelative({ cap: 9 })).toBe('in 9+ days');
+  });
+
+  test('sr caps at specified days', async () => {
+    await setAppDateLanguage('sr');
+    const fifteenDaysAgo = AppDate.now().subtract(15, 'day');
+    expect(fifteenDaysAgo.toRelative({ cap: 9 })).toBe('pre 9+ dana');
+  });
+
+  test('sr-ije caps at specified days', async () => {
+    await setAppDateLanguage('sr-ije');
+    const fifteenDaysAgo = AppDate.now().subtract(15, 'day');
+    expect(fifteenDaysAgo.toRelative({ cap: 9 })).toBe('prije 9+ dana');
+  });
+
+  test('falls back to date after threshold', async () => {
+    await setAppDateLanguage('en');
+    const twentyDaysAgo = AppDate.now().subtract(20, 'day');
+    const result = twentyDaysAgo.toRelative({
+      cap: 9,
+      fallbackAfterDays: 14,
+    });
+    // Should return localized date string (default fallback)
+    expect(result).toBe(twentyDaysAgo.toLocalizedDateString());
+  });
+
+  test('uses custom fallback formatter', async () => {
+    await setAppDateLanguage('sr');
+    const twentyDaysAgo = AppDate.now().subtract(20, 'day');
+    const result = twentyDaysAgo.toRelative({
+      cap: 9,
+      fallbackAfterDays: 14,
+      fallback: (d) => d.format('DD.MM.'),
+    });
+    expect(result).toBe(twentyDaysAgo.format('DD.MM.'));
+  });
+
+  test('does not cap when under threshold', async () => {
+    await setAppDateLanguage('en');
+    const fiveDaysAgo = AppDate.now().subtract(5, 'day');
+    expect(fiveDaysAgo.toRelative({ cap: 9 })).toBe('5 days ago');
+  });
+});

@@ -6,6 +6,7 @@ import "dayjs/locale/de";
 import customParseFormatPlugin from "dayjs/plugin/customParseFormat.js";
 import isBetweenPlugin from "dayjs/plugin/isBetween.js";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
+import relativeTimePlugin from "dayjs/plugin/relativeTime.js";
 import timezonePlugin from "dayjs/plugin/timezone.js";
 import utcPlugin from "dayjs/plugin/utc.js";
 
@@ -15,6 +16,7 @@ dayjs.extend(customParseFormatPlugin);
 dayjs.extend(isBetweenPlugin);
 // https://day.js.org/docs/en/display/format#list-of-localized-formats
 dayjs.extend(localizedFormat);
+dayjs.extend(relativeTimePlugin);
 
 /**
  * Given language string, formaters, months, weeks
@@ -479,6 +481,68 @@ export class AppDate {
     const time = this.toLocalTime();
     return `${date}, ${time}`;
   }
+
+  /**
+   * Returns a localized string representing the relative time from now.
+   * Automatically handles past and future dates.
+   *
+   * @param options - Optional settings for capping and fallback behavior
+   * @param options.cap - Cap the relative time at this many days (e.g., 9 shows "9+ days ago")
+   * @param options.fallbackAfterDays - After this many days, use the fallback formatter
+   * @param options.fallback - Custom formatter function when fallbackAfterDays is exceeded
+   *
+   * @returns A localized string like "2 days ago" or "in 3 hours"
+   *
+   * @example
+   * ```typescript
+   * await setAppDateLanguage('sr');
+   * AppDate.now().subtract(2, 'day').toRelative(); // "pre 2 dana"
+   * AppDate.now().add(3, 'hour').toRelative();     // "za 3 sata"
+   *
+   * // With cap at 9 days
+   * AppDate.now().subtract(15, 'day').toRelative({ cap: 9 }); // "pre 9+ dana"
+   *
+   * // With fallback to date after 14 days
+   * AppDate.now().subtract(20, 'day').toRelative({
+   *   cap: 9,
+   *   fallbackAfterDays: 14,
+   *   fallback: (d) => d.toLocalizedDateString()
+   * }); // "20.12.2025"
+   * ```
+   */
+  toRelative(options?: RelativeTimeOptions): string {
+    const now = dayjs();
+    const diffDays = Math.abs(this.dayjsDate.diff(now, "day"));
+
+    // If fallback threshold is reached, use fallback formatter
+    if (options?.fallbackAfterDays && diffDays >= options.fallbackAfterDays) {
+      const fallbackFn = options.fallback ?? ((d: AppDate) => d.toLocalizedDateString());
+      return fallbackFn(this);
+    }
+
+    // If cap threshold is reached, show capped version
+    if (options?.cap && diffDays >= options.cap) {
+      const isPast = this.dayjsDate.isBefore(now);
+      // Create a reference date at exactly `cap` days to get the localized format
+      const refDate = isPast
+        ? now.subtract(options.cap, "day")
+        : now.add(options.cap, "day");
+      const refString = refDate.fromNow();
+      // Replace the cap number with "cap+"
+      return refString.replace(String(options.cap), `${options.cap}+`);
+    }
+
+    return this.dayjsDate.fromNow();
+  }
+}
+
+export interface RelativeTimeOptions {
+  /** Cap the relative time at this many days. Shows "X+" format after this threshold. */
+  cap?: number;
+  /** After this many days, use the fallback formatter instead of relative time. */
+  fallbackAfterDays?: number;
+  /** Custom formatter function called when fallbackAfterDays is exceeded. Defaults to toLocalizedDateString(). */
+  fallback?: (date: AppDate) => string;
 }
 
 export interface LocalizedFormatOptions {
