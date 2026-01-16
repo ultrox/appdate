@@ -441,6 +441,9 @@ export class AppDate {
    *
    * @see {@link https://day.js.org/docs/en/display/format|Day.js format documentation}
    *
+   * TODO: Support date-fns/Unicode format tokens (e.g. EEEE for day of week)
+   * or warn when unrecognized tokens are used instead of printing them literally.
+   * Currently uses dayjs tokens: dddd = day of week, not EEEE.
    */
   format(template: FormatTemplate = "YYYY-MM-DDTHH:mm:ssZ[Z]") {
     return this.dayjsDate.format(template);
@@ -560,6 +563,36 @@ export function isDateString(date: string | undefined | null | Dayjs): date is D
 
   const parsedDate = dayjs(date, "YYYY-MM-DD", true);
   return parsedDate.isValid();
+}
+
+/**
+ * Extend AppDate prototype with custom methods.
+ * Use TypeScript module augmentation to add type definitions.
+ *
+ * @example
+ * ```typescript
+ * // In your app
+ * import { AppDate, extendAppDate } from "@ma.vu/appdate";
+ *
+ * extendAppDate({
+ *   formatLong(this: AppDate) {
+ *     return this.format("dddd, DD. MMMM");
+ *   },
+ * });
+ *
+ * // Augment types
+ * declare module "@ma.vu/appdate" {
+ *   interface AppDate {
+ *     formatLong(): string;
+ *   }
+ * }
+ *
+ * // Now you can use it
+ * AppDate.now().formatLong(); // "ponedjeljak, 06. januar"
+ * ```
+ */
+export function extendAppDate<T extends Record<string, unknown>>(methods: T): void {
+  Object.assign(AppDate.prototype, methods);
 }
 
 type FormatTemplate =
