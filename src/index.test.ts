@@ -308,6 +308,85 @@ describe("initializeAppDate", () => {
       await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
     }
   });
+
+  test("applies custom working weeks", async () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+
+    try {
+      await initializeAppDate({
+        language: "de",
+        timeZone: "Europe/Zurich",
+        workingDays: [0, 1, 2, 3, 4],
+      });
+
+      const thursday = AppDate.fromDateString("2024-01-11");
+      const sunday = AppDate.fromDateString("2024-01-14");
+      const friday = AppDate.fromDateString("2024-01-12");
+
+      expect(sunday.isWorkingDay()).toBe(true);
+      expect(friday.isWorkingDay()).toBe(false);
+      expect(thursday.nextWorkingDay().toDateString()).toBe("2024-01-14");
+      expect(sunday.previousWorkingDay().toDateString()).toBe("2024-01-11");
+      expect(thursday.addWorkingDays(3).toDateString()).toBe("2024-01-16");
+
+      await initializeAppDate({
+        language: "de",
+        timeZone: "Europe/Zurich",
+        workingDays: [3],
+      });
+
+      const tuesday = AppDate.fromDateString("2024-01-09");
+      const wednesday = AppDate.fromDateString("2024-01-10");
+
+      expect(wednesday.isWorkingDay()).toBe(true);
+      expect(thursday.isWorkingDay()).toBe(false);
+      expect(tuesday.nextWorkingDay().toDateString()).toBe("2024-01-10");
+      expect(thursday.previousWorkingDay().toDateString()).toBe("2024-01-10");
+      expect(tuesday.addWorkingDays(2).toDateString()).toBe("2024-01-17");
+
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+
+      expect(friday.isWorkingDay()).toBe(true);
+      expect(sunday.isWorkingDay()).toBe(false);
+    } finally {
+      setSystemTime();
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
+
+  test("rejects invalid working days atomically", async () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    const invalidWorkingDays: unknown[] = [[], [7], [-1], [1, 1], [1.5], "1,2", null, {}];
+
+    try {
+      await initializeAppDate({
+        language: "de",
+        timeZone: "Europe/Zurich",
+        workingDays: [3],
+      });
+
+      for (const invalid of invalidWorkingDays) {
+        await expect(
+          initializeAppDate({
+            language: "en",
+            timeZone: "America/New_York",
+            workingDays: invalid as number[],
+          })
+        ).rejects.toThrow(`Invalid workingDays: ${String(invalid)}`);
+
+        const wednesday = AppDate.fromDateString("2024-01-10");
+        const thursday = AppDate.fromDateString("2024-01-11");
+
+        expect(wednesday.timezone).toBe("Europe/Zurich");
+        expect(wednesday.format("MMMM")).toBe("Januar");
+        expect(wednesday.isWorkingDay()).toBe(true);
+        expect(thursday.isWorkingDay()).toBe(false);
+      }
+    } finally {
+      setSystemTime();
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
 });
 
 describe("diff", () => {

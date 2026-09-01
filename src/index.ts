@@ -23,6 +23,8 @@ export type AppDateLanguage = "de" | "en" | "fr" | "sr" | "sr-ije";
 export type AppDateConfig = {
   language: AppDateLanguage;
   timeZone: string;
+  /** 0 = Sunday through 6 = Saturday. Defaults to Monday through Friday. */
+  workingDays?: number[];
 };
 
 const localeLoaders: Record<AppDateLanguage, () => Promise<void>> = {
@@ -59,7 +61,28 @@ export async function setAppDateLanguage(lang: "de" | "en" | "fr" | "sr" | "sr-i
   await (localeLoaders[lang] ?? localeLoaders.en)();
 }
 
+const DEFAULT_WORKING_DAYS: readonly number[] = [1, 2, 3, 4, 5];
+
 let localTimezone = "Europe/Zurich";
+let workingDays: readonly number[] = DEFAULT_WORKING_DAYS;
+
+function validateWorkingDays(value: unknown): readonly number[] {
+  if (value === undefined) {
+    return DEFAULT_WORKING_DAYS;
+  }
+
+  const isValid =
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((day) => Number.isInteger(day) && day >= 0 && day <= 6) &&
+    new Set(value).size === value.length;
+
+  if (!isValid) {
+    throw new Error(`Invalid workingDays: ${String(value)}`);
+  }
+
+  return value;
+}
 
 export async function initializeAppDate(config: AppDateConfig): Promise<void> {
   try {
@@ -68,8 +91,11 @@ export async function initializeAppDate(config: AppDateConfig): Promise<void> {
     throw new Error(`Invalid timezone: ${config.timeZone}`);
   }
 
+  const nextWorkingDays = validateWorkingDays(config.workingDays);
+
   await setAppDateLanguage(config.language);
   localTimezone = config.timeZone;
+  workingDays = [...nextWorkingDays];
 }
 
 /**
@@ -559,10 +585,6 @@ export interface RelativeTimeOptions {
 export interface LocalizedFormatOptions {
   includeDayOfWeek?: boolean;
 }
-
-// for more information see here: https://day.js.org/docs/en/get-set/day
-// when we go international this needs to be configurable
-const workingDays = [1, 2, 3, 4, 5];
 
 export function getLocalizedDateString(date: string, options?: LocalizedFormatOptions) {
   return AppDate.fromDateString(date).toLocalizedDateString(options);
