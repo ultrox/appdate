@@ -164,11 +164,19 @@ test("formatShort", () => {
   expect(d).toBe("Sa, 24.10.");
 });
 
-test("formatDateTime", () => {
-  const result = getFixedDate().toLocalizedDateString({
-    includeDayOfWeek: false,
-  });
-  expect(result).toBe("24.10.1985");
+test("formatDateTime", async () => {
+  setSystemTime(new Date("1985-10-24T12:00:00Z"));
+
+  try {
+    await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    const date = getFixedDate();
+
+    expect(date.formatDateTime({ includeDayOfWeek: false })).toBe("24.10.1985, 00:00");
+    expect(date.formatDateTime({ includeDayOfWeek: true })).toBe("Do, 24.10.1985, 00:00");
+  } finally {
+    setSystemTime();
+    await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+  }
 });
 
 describe("timezone preservation", () => {
