@@ -102,6 +102,11 @@ type DateString = `${string}-${string}-${string}`; // YYYY-MM-DD
 const LOCAL_TIME_FORMAT = "HH:mm";
 const UTC_TIME_FORMAT = "HH:mm:ssZ";
 const FOREIGN_FORMAT_SEGMENT = /\[[^\]]*]|E+|y+/g;
+const INVALID_DAYJS = dayjs("");
+const zoneFormatters = new Map<
+  string,
+  { factory: typeof Intl.DateTimeFormat; formatter: Intl.DateTimeFormat }
+>();
 
 function assertSupportedFormatTemplate(template: string): void {
   for (const [token] of template.matchAll(FOREIGN_FORMAT_SEGMENT)) {
@@ -117,13 +122,124 @@ function assertSupportedFormatTemplate(template: string): void {
   }
 }
 
-function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
-  if (typeof globalThis.Intl === "undefined") {
-    const parsedDate = typeof date === "string" ? dayjs.utc(date) : date;
-    return parsedDate.tz(timezone, typeof date === "string");
+function getZoneFormatter(timeZone: string): Intl.DateTimeFormat {
+  const factory = Intl.DateTimeFormat;
+  const cached = zoneFormatters.get(timeZone);
+
+  if (cached?.factory === factory) {
+    return cached.formatter;
   }
 
-  return dayjs.tz(date, timezone);
+  const formatter = new factory("en-US", {
+    hour12: false,
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  zoneFormatters.set(timeZone, { factory, formatter });
+  return formatter;
+}
+
+type ZonedInstant = {
+  offset: number;
+  wallClock: string;
+  millisecond: number;
+};
+
+function zonedInstant(instantMs: number, timeZone: string): ZonedInstant | undefined {
+  try {
+    if (typeof globalThis.Intl === "undefined" || typeof Intl.DateTimeFormat !== "function") {
+      return undefined;
+    }
+
+    const formatter = getZoneFormatter(timeZone);
+
+    if (typeof formatter.formatToParts !== "function") {
+      return undefined;
+    }
+
+    const parts = formatter.formatToParts(new Date(instantMs));
+    const part = (type: string) => {
+      const value = parts.find((candidate) => candidate.type === type)?.value;
+      return value === undefined ? undefined : Number(value);
+    };
+    const year = part("year");
+    const month = part("month");
+    const day = part("day");
+    const rawHour = part("hour");
+    const minute = part("minute");
+    const second = part("second");
+
+    if (
+      year === undefined ||
+      month === undefined ||
+      day === undefined ||
+      rawHour === undefined ||
+      minute === undefined ||
+      second === undefined ||
+      ![year, month, day, rawHour, minute, second].every(Number.isFinite)
+    ) {
+      return undefined;
+    }
+
+    const hour = rawHour === 24 ? 0 : rawHour;
+    const asUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+    const millisecond = ((instantMs % 1000) + 1000) % 1000;
+    const instantWithoutMilliseconds = instantMs - millisecond;
+    const offset = Math.round((asUtc - instantWithoutMilliseconds) / 60000);
+
+    if (!Number.isFinite(offset)) {
+      return undefined;
+    }
+
+    const segment = (value: number, length = 2) => String(value).padStart(length, "0");
+    const wallClock = `${segment(year, 4)}-${segment(month)}-${segment(day)} ${segment(hour)}:${segment(minute)}:${segment(second)}`;
+    return { offset, wallClock, millisecond };
+  } catch {
+    return undefined;
+  }
+}
+
+function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
+  if (timezone === "UTC") {
+    const parsedDate = typeof date === "string" ? dayjs.utc(date) : dayjs(date.valueOf()).utc();
+    return typeof date === "string" ? parsedDate : parsedDate.locale(date.locale());
+  }
+
+  if (typeof globalThis.Intl === "undefined" || typeof Intl.DateTimeFormat !== "function") {
+    return INVALID_DAYJS;
+  }
+
+  if (typeof date === "string") {
+    const parsedDate = dayjs.tz(date, timezone);
+    return parsedDate.isValid() && zonedInstant(parsedDate.valueOf(), timezone) !== undefined
+      ? parsedDate
+      : INVALID_DAYJS;
+  }
+
+  const instantMs = date.valueOf();
+  const target = zonedInstant(instantMs, timezone);
+
+  if (target === undefined) {
+    return INVALID_DAYJS;
+  }
+
+  // Day.js's string path uses formatToParts instead of parsing Date#toLocaleString output.
+  const parsedDate = dayjs.tz(target.wallClock, timezone).millisecond(target.millisecond);
+
+  if (
+    !parsedDate.isValid() ||
+    parsedDate.utcOffset() !== target.offset ||
+    parsedDate.valueOf() !== instantMs
+  ) {
+    return INVALID_DAYJS;
+  }
+
+  return parsedDate.locale(date.locale());
 }
 
 /**
@@ -155,7 +271,7 @@ function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
 export class AppDate {
   readonly timezone: string;
   readonly dayjsDate: Dayjs;
-  private static readonly INVALID_DATE = dayjs("");
+  private static readonly INVALID_DATE = INVALID_DAYJS;
 
   /**
    * constructor is private, so new LocalString("something")
@@ -364,7 +480,7 @@ export class AppDate {
    * returns true if date is current day
    */
   isToday() {
-    const today = dayjs.tz(dayjs(), this.timezone);
+    const today = inTimezone(dayjs(), this.timezone);
     return this.dayjsDate.isSame(today, "day");
   }
 
