@@ -506,9 +506,7 @@ export class AppDate {
    *
    * @see {@link https://day.js.org/docs/en/display/format|Day.js format documentation}
    *
-   * TODO: Support date-fns/Unicode format tokens (e.g. EEEE for day of week)
-   * or warn when unrecognized tokens are used instead of printing them literally.
-   * Currently uses dayjs tokens: dddd = day of week, not EEEE.
+   * The template uses Day.js format tokens, such as dddd for the day of the week.
    */
   format(template: FormatTemplate = "YYYY-MM-DDTHH:mm:ssZ[Z]") {
     return this.dayjsDate.format(template);
