@@ -2,6 +2,10 @@
   "version": "0.2.2",
   "name": "@ma.vu/appdate",
   "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ultrox/appdate"
+  },
   "main": "dist/index.cjs",
   "publishConfig": {
     "access": "public"
