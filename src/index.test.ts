@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeAll, setSystemTime } from "bun:test";
 // import { expect, describe, test } from 'vitest';
-import { AppDate, setAppDateLanguage, setTimezone } from "./index";
+import { AppDate, initializeAppDate, setAppDateLanguage, setTimezone } from "./index";
 
 beforeAll(async () => {
   await setAppDateLanguage("de");
@@ -103,6 +103,45 @@ describe("isToday", () => {
     } finally {
       setSystemTime();
       setTimezone("Europe/Zurich");
+    }
+  });
+});
+
+describe("initializeAppDate", () => {
+  test("rejects invalid timezones without changing the current config", async () => {
+    await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+
+    await expect(initializeAppDate({ language: "en", timeZone: "Invalid/Zone" })).rejects.toThrow(
+      "Invalid timezone: Invalid/Zone"
+    );
+
+    const date = AppDate.fromDateString("2024-01-15");
+    expect(date.timezone).toBe("Europe/Zurich");
+    expect(date.format("MMMM")).toBe("Januar");
+  });
+
+  test("applies the language and timezone together", async () => {
+    try {
+      await initializeAppDate({ language: "en", timeZone: "America/New_York" });
+
+      const date = AppDate.fromDateString("2024-01-15");
+      expect(date.timezone).toBe("America/New_York");
+      expect(date.format("MMMM")).toBe("January");
+    } finally {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
+
+  test("can be called again with a different config", async () => {
+    try {
+      await initializeAppDate({ language: "en", timeZone: "America/New_York" });
+      await initializeAppDate({ language: "fr", timeZone: "Europe/Paris" });
+
+      const date = AppDate.fromDateString("2024-01-15");
+      expect(date.timezone).toBe("Europe/Paris");
+      expect(date.format("MMMM")).toBe("janvier");
+    } finally {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
     }
   });
 });

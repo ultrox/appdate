@@ -18,6 +18,37 @@ dayjs.extend(isBetweenPlugin);
 dayjs.extend(localizedFormat);
 dayjs.extend(relativeTimePlugin);
 
+export type AppDateLanguage = "de" | "en" | "fr" | "sr" | "sr-ije";
+
+export type AppDateConfig = {
+  language: AppDateLanguage;
+  timeZone: string;
+};
+
+const localeLoaders: Record<AppDateLanguage, () => Promise<void>> = {
+  de: async () => {
+    const de = await import("dayjs/locale/de-ch.js");
+    dayjs.locale(de.default);
+  },
+  en: async () => {
+    const en = await import("dayjs/locale/en.js");
+    dayjs.locale(en.default);
+  },
+  fr: async () => {
+    const fr = await import("dayjs/locale/fr-ch.js");
+    dayjs.locale(fr.default);
+  },
+  sr: async () => {
+    const sr = await import("dayjs/locale/sr.js");
+    dayjs.locale(sr.default);
+  },
+  "sr-ije": async () => {
+    const srIje = await import("./sr-ijekavian");
+    dayjs.locale(srIje.default, undefined, true);
+    dayjs.locale("sr-ije");
+  },
+};
+
 /**
  * Given language string, formaters, months, weeks
  * will be localized to provided language
@@ -25,38 +56,22 @@ dayjs.extend(relativeTimePlugin);
  * en: 10/10/2010
  */
 export async function setAppDateLanguage(lang: "de" | "en" | "fr" | "sr" | "sr-ije") {
-  switch (lang) {
-    case "de": {
-      const de = await import("dayjs/locale/de-ch.js");
-      dayjs.locale(de.default);
-      break;
-    }
-    case "fr": {
-      const fr = await import("dayjs/locale/fr-ch.js");
-      dayjs.locale(fr.default);
-      break;
-    }
-    case "sr": {
-      const sr = await import("dayjs/locale/sr.js");
-      dayjs.locale(sr.default);
-      break;
-    }
-    case "sr-ije": {
-      const srIje = await import("./sr-ijekavian");
-      dayjs.locale(srIje.default, undefined, true);
-      dayjs.locale("sr-ije");
-      break;
-    }
-    case "en":
-    default: {
-      const en = await import("dayjs/locale/en.js");
-      dayjs.locale(en.default);
-      break;
-    }
-  }
+  await (localeLoaders[lang] ?? localeLoaders.en)();
 }
 
 let localTimezone = "Europe/Zurich";
+
+export async function initializeAppDate(config: AppDateConfig): Promise<void> {
+  try {
+    dayjs().tz(config.timeZone);
+  } catch {
+    throw new Error(`Invalid timezone: ${config.timeZone}`);
+  }
+
+  await setAppDateLanguage(config.language);
+  localTimezone = config.timeZone;
+}
+
 /**
  * Change zone in runtime
  */
