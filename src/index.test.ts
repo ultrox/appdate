@@ -1,6 +1,21 @@
 import { expect, test, describe, beforeAll, setSystemTime } from "bun:test";
 // import { expect, describe, test } from 'vitest';
-import { AppDate, initializeAppDate, setAppDateLanguage, setTimezone } from "./index";
+import {
+  AppDate,
+  extendAppDate,
+  formatLocalTime,
+  getLocalizedDateString,
+  initializeAppDate,
+  isDateString,
+  setAppDateLanguage,
+  setTimezone,
+} from "./index";
+
+declare module "./index" {
+  interface AppDate {
+    returnSelfForTest(): AppDate;
+  }
+}
 
 beforeAll(async () => {
   await setAppDateLanguage("de");
@@ -46,6 +61,69 @@ describe("fromDateString", () => {
     expect(AppDate.fromDateString("2020-88-24").isValid()).toBe(false);
     expect(AppDate.fromDateString("2020-88-44").isValid()).toBe(false);
     expect(AppDate.fromDateString("2020-88-500").isValid()).toBe(false);
+  });
+});
+
+describe("exported helpers and extension hook", () => {
+  test("validates strict date strings", () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+
+    try {
+      const cases = [
+        ["2024-02-29", true],
+        ["2024-02-30", false],
+        ["2024-2-01", false],
+        ["2024-02-01T00:00:00Z", false],
+        ["", false],
+        [undefined, false],
+        [null, false],
+      ] as const;
+
+      for (const [value, expected] of cases) {
+        expect(isDateString(value)).toBe(expected);
+      }
+    } finally {
+      setSystemTime();
+    }
+  });
+
+  test("formats dates and local times through the exported helpers", async () => {
+    setSystemTime(new Date("2024-01-11T12:00:00Z"));
+
+    try {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+
+      expect(getLocalizedDateString("2024-01-11")).toBe("11.01.2024");
+      expect(getLocalizedDateString("2024-01-11", { includeDayOfWeek: true })).toBe(
+        "Do, 11.01.2024"
+      );
+      expect(formatLocalTime("08:05")).toBe("08:05");
+    } finally {
+      setSystemTime();
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
+
+  test("binds extension methods to the AppDate instance", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+
+    try {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+      const date = AppDate.fromDateString("2024-01-15");
+
+      extendAppDate({
+        returnSelfForTest(this: AppDate) {
+          expect(this).toBe(date);
+          expect(this).toBeInstanceOf(AppDate);
+          return this;
+        },
+      });
+
+      expect(date.returnSelfForTest()).toBe(date);
+    } finally {
+      setSystemTime();
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
   });
 });
 
