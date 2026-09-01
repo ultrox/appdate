@@ -54,6 +54,7 @@ const localeLoaders: Record<AppDateLanguage, () => Promise<void>> = {
  * will be localized to provided language
  * de: 10.10.2010
  * en: 10/10/2010
+ * @deprecated Use initializeAppDate
  */
 export async function setAppDateLanguage(lang: "de" | "en" | "fr" | "sr" | "sr-ije") {
   await (localeLoaders[lang] ?? localeLoaders.en)();
@@ -74,6 +75,7 @@ export async function initializeAppDate(config: AppDateConfig): Promise<void> {
 
 /**
  * Change zone in runtime
+ * @deprecated Use initializeAppDate
  */
 export function setTimezone(timezone: string) {
   localTimezone = timezone;
