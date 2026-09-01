@@ -189,6 +189,21 @@ describe("fromUtcString", () => {
     expect(date.toDateString()).toBe("2024-06-15");
   });
 
+  test("creates date from a full ISO 8601 UTC datetime", () => {
+    setSystemTime(new Date("2026-01-13T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const date = AppDate.fromUtcString("2026-01-13T10:30:00Z");
+      expect(date.isValid()).toBe(true);
+      expect(date.toDateString()).toBe("2026-01-13");
+      expect(date.toLocalTime()).toBe("11:30");
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+
   test("creates current date when no argument passed", () => {
     const date = AppDate.fromUtcString();
     expect(date.isValid()).toBe(true);

@@ -229,9 +229,10 @@ export class AppDate {
   }
 
   /**
+   * Creates an AppDate from a UTC date or datetime string.
    *
-   * @param date - A string representing a UTC date in "YYYY-MM-DD" format.
-   * @returns A new AppDate instance set to the given UTC date.
+   * @param date - A "YYYY-MM-DD" date or full ISO 8601 datetime, parsed as UTC.
+   * @returns A new AppDate instance set to the given UTC date or datetime.
    *
    * @example
    * const date = AppDate.fromUtcString("2026-01-04");
