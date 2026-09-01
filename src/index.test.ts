@@ -111,6 +111,75 @@ describe("timezone preservation", () => {
   });
 });
 
+describe("comparison and UTC conversion methods", () => {
+  test("converts a local date across the UTC calendar-day boundary", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+
+    try {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+      const date = AppDate.fromEpochMillis(1705275000000);
+
+      expect(date.toDateString()).toBe("2024-01-15");
+      expect(date.toLocalTime()).toBe("00:30");
+      expect(date.toUtcTime()).toBe("23:30:00+00:00");
+      expect(date.toUtcDateString()).toBe("2024-01-14");
+      expect(date.toUtcString()).toBe("2024-01-14T23:30:00+00:00");
+      expect(date.toEpochSeconds()).toBe(1705275000);
+    } finally {
+      setSystemTime();
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
+
+  test("compares exact instants and calendar-day granularity", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+
+    try {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+      const morning = AppDate.fromEpochMillis(1705305600000);
+      const evening = AppDate.fromEpochMillis(1705338000000);
+
+      expect(morning.isBefore(evening)).toBe(true);
+      expect(morning.isBefore(evening, "day")).toBe(false);
+      expect(evening.isAfter(morning)).toBe(true);
+      expect(evening.isAfter(morning, "day")).toBe(false);
+      expect(morning.isSame(evening)).toBe(false);
+      expect(morning.isSame(evening, "day")).toBe(true);
+      expect(morning.isSame(morning)).toBe(true);
+    } finally {
+      setSystemTime();
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
+
+  test("calculates day and month boundaries in the instance timezone", async () => {
+    setSystemTime(new Date("2024-02-15T12:00:00Z"));
+
+    try {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+      const date = AppDate.fromEpochMillis(1707996896789);
+      const startOfDay = date.startOf("day");
+      const endOfDay = date.endOf("day");
+      const startOfMonth = date.startOf("month");
+      const endOfMonth = date.endOf("month");
+      const tomorrow = date.tomorrow();
+
+      expect(startOfDay.format("YYYY-MM-DD HH:mm:ss.SSS")).toBe("2024-02-15 00:00:00.000");
+      expect(endOfDay.format("YYYY-MM-DD HH:mm:ss.SSS")).toBe("2024-02-15 23:59:59.999");
+      expect(startOfMonth.format("YYYY-MM-DD HH:mm:ss.SSS")).toBe("2024-02-01 00:00:00.000");
+      expect(endOfMonth.format("YYYY-MM-DD HH:mm:ss.SSS")).toBe("2024-02-29 23:59:59.999");
+      expect(tomorrow.format("YYYY-MM-DD HH:mm:ss.SSS")).toBe("2024-02-16 12:34:56.789");
+
+      for (const result of [startOfDay, endOfDay, startOfMonth, endOfMonth, tomorrow]) {
+        expect(result.timezone).toBe("Europe/Zurich");
+      }
+    } finally {
+      setSystemTime();
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
+});
+
 describe("isToday", () => {
   test("compares today in the configured timezone", () => {
     setSystemTime(new Date("2024-01-01T02:00:00Z"));
