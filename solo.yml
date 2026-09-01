@@ -10,7 +10,7 @@ processes:
     restart_when_changed: []
     env: {}
   Vitest:
-    command: bunx vitest --ui
+    command: bun run test:ui
     working_dir: null
     auto_start: false
     auto_restart: false

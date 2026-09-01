@@ -38,14 +38,23 @@ test("configured apps can import and create dates without Intl", async () => {
   Reflect.deleteProperty(globalThis, "Intl");
 
   try {
-    const configuredModule = await import("./index?intl-absent");
+    const cacheBustedIndex = "./index?intl-absent";
+    const configuredModule = await import(cacheBustedIndex);
 
-    await configuredModule.initializeAppDate({ language: "en", timeZone: "Europe/Zurich" });
-    const date = configuredModule.AppDate.fromDateString("2024-01-15");
+    const cases = [
+      ["Europe/Zurich", "+01:00"],
+      ["America/New_York", "-05:00"],
+      ["Asia/Tokyo", "+09:00"],
+    ] as const;
 
-    expect(date.isValid()).toBe(true);
-    expect(date.timezone).toBe("Europe/Zurich");
-    expect(date.format("YYYY-MM-DD HH:mm Z")).toBe("2024-01-15 00:00 +01:00");
+    for (const [timeZone, offset] of cases) {
+      await configuredModule.initializeAppDate({ language: "en", timeZone });
+      const date = configuredModule.AppDate.fromDateString("2024-01-15");
+
+      expect(date.isValid()).toBe(true);
+      expect(date.timezone).toBe(timeZone);
+      expect(date.format("YYYY-MM-DD HH:mm Z")).toBe(`2024-01-15 00:00 ${offset}`);
+    }
     expect(guessCalls).toBe(0);
   } finally {
     dayjs.tz.guess = guess;
@@ -463,6 +472,25 @@ describe("working day and range logic", () => {
     } finally {
       setSystemTime();
       await configure();
+    }
+  });
+
+  test("matches step-wise working-day traversal", async () => {
+    const workingWeekCases = [[1, 2, 3, 4, 5], [0, 1, 2, 3, 4], [3]];
+
+    try {
+      for (const workingDays of workingWeekCases) {
+        await initializeAppDate({ language: "de", timeZone: "Europe/Zurich", workingDays });
+        const start = AppDate.fromDateString("2024-01-03");
+        let stepWise = start;
+
+        for (let days = 1; days <= 60; days += 1) {
+          stepWise = stepWise.nextWorkingDay();
+          expect(start.addWorkingDays(days).toEpochMillis()).toBe(stepWise.toEpochMillis());
+        }
+      }
+    } finally {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
     }
   });
 
