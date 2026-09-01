@@ -1,5 +1,9 @@
 import dayjs from "dayjs";
 
 export function resolveSystemTimezone(): string {
-  return dayjs.tz.guess() || "UTC";
+  try {
+    return dayjs.tz.guess() || "UTC";
+  } catch {
+    return "UTC";
+  }
 }

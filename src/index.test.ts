@@ -26,6 +26,35 @@ const configure = (language: AppDateLanguage = "de", timeZone = "Europe/Zurich")
  */
 const getFixedDate = () => AppDate.fromDateString("1985-10-24");
 
+test("configured apps can import and create dates without Intl", async () => {
+  const intlDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Intl");
+  const guess = dayjs.tz.guess;
+  let guessCalls = 0;
+
+  dayjs.tz.guess = () => {
+    guessCalls += 1;
+    return guess();
+  };
+  Reflect.deleteProperty(globalThis, "Intl");
+
+  try {
+    const configuredModule = await import("./index?intl-absent");
+
+    await configuredModule.initializeAppDate({ language: "en", timeZone: "Europe/Zurich" });
+    const date = configuredModule.AppDate.fromDateString("2024-01-15");
+
+    expect(date.isValid()).toBe(true);
+    expect(date.timezone).toBe("Europe/Zurich");
+    expect(date.format("YYYY-MM-DD HH:mm Z")).toBe("2024-01-15 00:00 +01:00");
+    expect(guessCalls).toBe(0);
+  } finally {
+    dayjs.tz.guess = guess;
+    if (intlDescriptor) {
+      Object.defineProperty(globalThis, "Intl", intlDescriptor);
+    }
+  }
+});
+
 test("defaults to the resolved system timezone before initialization", () => {
   expect(AppDate.fromDateString("2024-10-10").timezone).toBe(dayjs.tz.guess() || "UTC");
 });
@@ -40,6 +69,19 @@ test("falls back to UTC when Intl has no timezone", () => {
     expect(resolveSystemTimezone()).toBe("UTC");
   } finally {
     Intl.DateTimeFormat = DateTimeFormat;
+  }
+});
+
+test("falls back to UTC when Intl is unavailable", () => {
+  const intlDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Intl");
+  Reflect.deleteProperty(globalThis, "Intl");
+
+  try {
+    expect(resolveSystemTimezone()).toBe("UTC");
+  } finally {
+    if (intlDescriptor) {
+      Object.defineProperty(globalThis, "Intl", intlDescriptor);
+    }
   }
 });
 
