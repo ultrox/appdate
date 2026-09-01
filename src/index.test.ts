@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeAll, setSystemTime } from "bun:test";
 // import { expect, describe, test } from 'vitest';
-import { AppDate, setAppDateLanguage } from "./index";
+import { AppDate, setAppDateLanguage, setTimezone } from "./index";
 
 beforeAll(async () => {
   await setAppDateLanguage("de");
@@ -72,6 +72,24 @@ test("formatDateTime", () => {
     includeDayOfWeek: false,
   });
   expect(result).toBe("24.10.1985");
+});
+
+describe("timezone preservation", () => {
+  test("add preserves the instance timezone and wall-clock time", () => {
+    setTimezone("Europe/Zurich");
+    try {
+      const date = AppDate.fromDateString("2024-01-15");
+      setTimezone("America/New_York");
+
+      const nextDay = date.add(1, "day");
+
+      expect(nextDay.timezone).toBe("Europe/Zurich");
+      expect(nextDay.toDateString()).toBe("2024-01-16");
+      expect(nextDay.toLocalTime()).toBe("00:00");
+    } finally {
+      setTimezone("Europe/Zurich");
+    }
+  });
 });
 
 describe("fromEpochSeconds", () => {

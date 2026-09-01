@@ -270,22 +270,22 @@ export class AppDate {
 
   add(value: number, unit?: ManipulateType) {
     const date = this.dayjsDate.add(value, unit);
-    return new AppDate(localTimezone, date);
+    return new AppDate(this.timezone, date);
   }
 
   subtract(value: number, unit?: ManipulateType) {
     const date = this.dayjsDate.subtract(value, unit);
-    return new AppDate(localTimezone, date);
+    return new AppDate(this.timezone, date);
   }
 
   startOf(unit: OpUnitType) {
     const date = this.dayjsDate.startOf(unit);
-    return new AppDate(localTimezone, date);
+    return new AppDate(this.timezone, date);
   }
 
   endOf(unit: OpUnitType) {
     const date = this.dayjsDate.endOf(unit);
-    return new AppDate(localTimezone, date);
+    return new AppDate(this.timezone, date);
   }
 
   tomorrow() {
