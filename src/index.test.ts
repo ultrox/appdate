@@ -107,6 +107,34 @@ describe("isToday", () => {
   });
 });
 
+describe("isFirstDayOfWeek", () => {
+  test("honours the English Sunday week start", async () => {
+    setSystemTime(new Date("2024-01-07T12:00:00Z"));
+    await setAppDateLanguage("en");
+
+    try {
+      expect(AppDate.fromDateString("2024-01-07").isFirstDayOfWeek()).toBe(true);
+      expect(AppDate.fromDateString("2024-01-08").isFirstDayOfWeek()).toBe(false);
+    } finally {
+      setSystemTime();
+      await setAppDateLanguage("de");
+    }
+  });
+
+  test("keeps Monday as the first day for German", async () => {
+    setSystemTime(new Date("2024-01-08T12:00:00Z"));
+    await setAppDateLanguage("de");
+
+    try {
+      expect(AppDate.fromDateString("2024-01-07").isFirstDayOfWeek()).toBe(false);
+      expect(AppDate.fromDateString("2024-01-08").isFirstDayOfWeek()).toBe(true);
+    } finally {
+      setSystemTime();
+      await setAppDateLanguage("de");
+    }
+  });
+});
+
 describe("initializeAppDate", () => {
   test("rejects invalid timezones without changing the current config", async () => {
     await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });

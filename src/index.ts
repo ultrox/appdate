@@ -351,8 +351,7 @@ export class AppDate {
   }
 
   isFirstDayOfWeek() {
-    // sunday is day 0
-    return this.dayjsDate.day() === 1;
+    return this.dayjsDate.isSame(this.dayjsDate.startOf("week"), "day");
   }
 
   isWorkingDay() {
