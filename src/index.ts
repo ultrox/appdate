@@ -10,6 +10,8 @@ import relativeTimePlugin from "dayjs/plugin/relativeTime.js";
 import timezonePlugin from "dayjs/plugin/timezone.js";
 import utcPlugin from "dayjs/plugin/utc.js";
 
+import { resolveSystemTimezone } from "./system-timezone";
+
 dayjs.extend(utcPlugin);
 dayjs.extend(timezonePlugin);
 dayjs.extend(customParseFormatPlugin);
@@ -55,8 +57,9 @@ async function loadLocale(lang: AppDateLanguage) {
 }
 
 const DEFAULT_WORKING_DAYS: readonly number[] = [1, 2, 3, 4, 5];
+const DEFAULT_TIMEZONE = resolveSystemTimezone();
 
-let localTimezone = "Europe/Zurich";
+let localTimezone = DEFAULT_TIMEZONE;
 let workingDays: readonly number[] = DEFAULT_WORKING_DAYS;
 
 function validateWorkingDays(value: unknown): readonly number[] {

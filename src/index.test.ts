@@ -1,4 +1,5 @@
-import { expect, test, describe, beforeAll, setSystemTime } from "bun:test";
+import { expect, test, describe, setSystemTime } from "bun:test";
+import dayjs from "dayjs";
 // import { expect, describe, test } from 'vitest';
 import {
   AppDate,
@@ -9,6 +10,7 @@ import {
   isDateString,
   type AppDateLanguage,
 } from "./index";
+import { resolveSystemTimezone } from "./system-timezone";
 
 declare module "./index" {
   interface AppDate {
@@ -19,18 +21,35 @@ declare module "./index" {
 const configure = (language: AppDateLanguage = "de", timeZone = "Europe/Zurich") =>
   initializeAppDate({ language, timeZone });
 
-beforeAll(async () => {
-  await configure();
-});
-
 /**
  * @description this is just helper to test date
  */
 const getFixedDate = () => AppDate.fromDateString("1985-10-24");
 
-test("default time zone is Europe/Zurich", () => {
-  const d = AppDate.fromDateString("2024-10-10");
-  expect(d.timezone).toBe("Europe/Zurich");
+test("defaults to the resolved system timezone before initialization", () => {
+  expect(AppDate.fromDateString("2024-10-10").timezone).toBe(dayjs.tz.guess() || "UTC");
+});
+
+test("falls back to UTC when Intl has no timezone", () => {
+  const DateTimeFormat = Intl.DateTimeFormat;
+  Intl.DateTimeFormat = (() => ({
+    resolvedOptions: () => ({}),
+  })) as unknown as typeof Intl.DateTimeFormat;
+
+  try {
+    expect(resolveSystemTimezone()).toBe("UTC");
+  } finally {
+    Intl.DateTimeFormat = DateTimeFormat;
+  }
+});
+
+test("applies an explicitly initialized timezone", async () => {
+  try {
+    await configure("de", "America/New_York");
+    expect(AppDate.fromDateString("2024-10-10").timezone).toBe("America/New_York");
+  } finally {
+    await configure();
+  }
 });
 
 test("successfully create invalid date", () => {
@@ -38,14 +57,22 @@ test("successfully create invalid date", () => {
   expect(d.isValid()).toBe(false);
 });
 
-test("localizedDate String", () => {
-  const d = AppDate.fromDateString("2010-10-10");
-  expect(d.toLocalizedDateString()).toBe("10.10.2010");
+test("localizedDate String", async () => {
+  await configure();
+  const date = AppDate.fromDateString("2010-10-10");
+  expect(date.toLocalizedDateString()).toBe("10.10.2010");
 });
 
-test("fromLocalTime", () => {
-  const d = AppDate.fromLocalTime("11:12");
-  expect(d.isValid()).toBe(true);
+test("fromLocalTime", async () => {
+  setSystemTime(new Date("2024-01-15T12:00:00Z"));
+
+  try {
+    await configure();
+    expect(AppDate.fromLocalTime("11:12").isValid()).toBe(true);
+  } finally {
+    setSystemTime();
+    await configure();
+  }
 });
 
 describe("fromDateString", () => {
@@ -147,7 +174,8 @@ test("invalid input stays silent", async () => {
   }
 });
 
-test("format", () => {
+test("format", async () => {
+  await configure();
   expect(AppDate.fromDateString("2020-10-24").format("[++] YYYY")).toBe("++ 2020");
   expect(AppDate.fromDateString("2020-10-24").format("MMM")).toBe("Okt.");
 });
@@ -159,10 +187,9 @@ test("format", () => {
  *
  */
 
-test("formatShort", () => {
-  // code
-  const d = AppDate.fromDateString("2020-10-24").formatShort();
-  expect(d).toBe("Sa, 24.10.");
+test("formatShort", async () => {
+  await configure();
+  expect(AppDate.fromDateString("2020-10-24").formatShort()).toBe("Sa, 24.10.");
 });
 
 test("formatDateTime", async () => {
@@ -582,13 +609,14 @@ describe("diff", () => {
 
 describe("fromEpochSeconds", () => {
   test("creates date from unix timestamp", async () => {
-    await configure("de");
+    await configure();
     const date = AppDate.fromEpochSeconds(1704067200); // 2024-01-01 00:00:00 UTC
     expect(date.isValid()).toBe(true);
     expect(date.toDateString()).toBe("2024-01-01");
   });
 
-  test("handles zero timestamp (unix epoch)", () => {
+  test("handles zero timestamp (unix epoch)", async () => {
+    await configure();
     const date = AppDate.fromEpochSeconds(0);
     expect(date.isValid()).toBe(true);
     expect(date.toDateString()).toBe("1970-01-01");
@@ -596,7 +624,8 @@ describe("fromEpochSeconds", () => {
 });
 
 describe("fromUtcString", () => {
-  test("creates date from UTC date string", () => {
+  test("creates date from UTC date string", async () => {
+    await configure();
     const date = AppDate.fromUtcString("2024-06-15");
     expect(date.isValid()).toBe(true);
     expect(date.toDateString()).toBe("2024-06-15");
@@ -617,49 +646,76 @@ describe("fromUtcString", () => {
     }
   });
 
-  test("creates current date when no argument passed", () => {
-    const date = AppDate.fromUtcString();
-    expect(date.isValid()).toBe(true);
-    expect(date.toDateString()).toBe(AppDate.now().toDateString());
+  test("creates current date when no argument passed", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+
+    try {
+      await configure();
+      const date = AppDate.fromUtcString();
+      expect(date.isValid()).toBe(true);
+      expect(date.toDateString()).toBe("2024-01-15");
+    } finally {
+      setSystemTime();
+      await configure();
+    }
   });
 });
 
 describe("fromUtcTime", () => {
-  test("creates date from UTC time string", () => {
+  test("creates date from UTC time string", async () => {
     setSystemTime(new Date("2024-01-15T12:00:00Z"));
     try {
+      await configure();
       const date = AppDate.fromUtcTime("14:30:00+00:00");
       expect(date.isValid()).toBe(true);
       expect(date.toLocalTime()).toBe("15:30"); // UTC+1 (Europe/Zurich winter)
     } finally {
       setSystemTime();
+      await configure();
     }
   });
 
-  test("handles midnight UTC", () => {
-    const date = AppDate.fromUtcTime("00:00:00+00:00");
-    expect(date.isValid()).toBe(true);
+  test("handles midnight UTC", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+
+    try {
+      await configure();
+      expect(AppDate.fromUtcTime("00:00:00+00:00").isValid()).toBe(true);
+    } finally {
+      setSystemTime();
+      await configure();
+    }
   });
 });
 
 describe("fromEpochMillis", () => {
-  test("creates date from milliseconds timestamp", () => {
+  test("creates date from milliseconds timestamp", async () => {
+    await configure();
     const date = AppDate.fromEpochMillis(1704067200000); // 2024-01-01 00:00:00 UTC
     expect(date.isValid()).toBe(true);
     expect(date.toDateString()).toBe("2024-01-01");
   });
 
-  test("handles zero timestamp (unix epoch)", () => {
+  test("handles zero timestamp (unix epoch)", async () => {
+    await configure();
     const date = AppDate.fromEpochMillis(0);
     expect(date.isValid()).toBe(true);
     expect(date.toDateString()).toBe("1970-01-01");
   });
 
-  test("roundtrips with toEpochMillis", () => {
-    const now = AppDate.now();
-    const millis = now.toEpochMillis();
-    const restored = AppDate.fromEpochMillis(millis);
-    expect(restored.toDateString()).toBe(now.toDateString());
+  test("roundtrips with toEpochMillis", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+
+    try {
+      await configure();
+      const now = AppDate.now();
+      const millis = now.toEpochMillis();
+      const restored = AppDate.fromEpochMillis(millis);
+      expect(restored.toDateString()).toBe("2024-01-15");
+    } finally {
+      setSystemTime();
+      await configure();
+    }
   });
 });
 
