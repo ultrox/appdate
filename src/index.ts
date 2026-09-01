@@ -564,11 +564,6 @@ export interface LocalizedFormatOptions {
   includeDayOfWeek?: boolean;
 }
 
-export interface GetNDaysOptions {
-  startDate?: AppDate;
-  excludeStartDate?: boolean;
-}
-
 // for more information see here: https://day.js.org/docs/en/get-set/day
 // when we go international this needs to be configurable
 const workingDays = [1, 2, 3, 4, 5];
