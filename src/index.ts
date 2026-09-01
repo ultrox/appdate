@@ -31,8 +31,7 @@ const localeLoaders: Record<AppDateLanguage, () => Promise<void>> = {
     dayjs.locale(de.default);
   },
   en: async () => {
-    const en = await import("dayjs/locale/en.js");
-    dayjs.locale(en.default);
+    dayjs.locale("en");
   },
   fr: async () => {
     const fr = await import("dayjs/locale/fr-ch.js");
@@ -135,8 +134,7 @@ export class AppDate {
         throw new Error("Invalid Date string, we expect YYYY-DD-MM");
       }
       this.dayjsDate = dayjs.tz(date, timezone);
-    } catch (_e) {
-      console.warn("Could not parse date:", date);
+    } catch {
       this.dayjsDate = AppDate.INVALID_DATE;
     }
   }
@@ -220,10 +218,7 @@ export class AppDate {
     try {
       const date = dayjs.tz(time, LOCAL_TIME_FORMAT, localTimezone);
       return new AppDate(localTimezone, date);
-    } catch (err) {
-      if (err instanceof Error) {
-        console.warn(`fromLocalTime(): ${err.message}`);
-      }
+    } catch {
       return AppDate.invalid();
     }
   }
@@ -352,8 +347,7 @@ export class AppDate {
   }
 
   isFirstDayOfWeek() {
-    // sunday is day 0
-    return this.dayjsDate.day() === 1;
+    return this.dayjsDate.isSame(this.dayjsDate.startOf("week"), "day");
   }
 
   isWorkingDay() {
@@ -534,10 +528,18 @@ export class AppDate {
     // If cap threshold is reached, show capped version
     if (options?.cap && diffDays >= options.cap) {
       const isPast = this.dayjsDate.isBefore(now);
-      // Create a reference date at exactly `cap` days to get the localized format
       const refDate = isPast ? now.subtract(options.cap, "day") : now.add(options.cap, "day");
       const refString = refDate.fromNow();
-      // Replace the cap number with "cap+"
+
+      const relativeTime = dayjs.Ls[dayjs.locale()]?.relativeTime;
+      const dayTemplate = relativeTime?.dd;
+      const wrapperTemplate = isPast ? relativeTime?.past : relativeTime?.future;
+
+      if (typeof dayTemplate === "string" && typeof wrapperTemplate === "string") {
+        const cappedDays = dayTemplate.replace("%d", `${options.cap}+`);
+        return wrapperTemplate.replace("%s", cappedDays);
+      }
+
       return refString.replace(String(options.cap), `${options.cap}+`);
     }
 
@@ -556,11 +558,6 @@ export interface RelativeTimeOptions {
 
 export interface LocalizedFormatOptions {
   includeDayOfWeek?: boolean;
-}
-
-export interface GetNDaysOptions {
-  startDate?: AppDate;
-  excludeStartDate?: boolean;
 }
 
 // for more information see here: https://day.js.org/docs/en/get-set/day

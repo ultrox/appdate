@@ -49,6 +49,25 @@ describe("fromDateString", () => {
   });
 });
 
+test("invalid input stays silent", () => {
+  const originalWarn = console.warn;
+  const warnings: unknown[][] = [];
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+
+  try {
+    expect(AppDate.fromDateString("not-a-date").isValid()).toBe(false);
+
+    setTimezone("Invalid/Zone");
+    expect(AppDate.fromLocalTime("11:12").isValid()).toBe(false);
+    expect(warnings).toEqual([]);
+  } finally {
+    setTimezone("Europe/Zurich");
+    console.warn = originalWarn;
+  }
+});
+
 test("format", () => {
   expect(AppDate.fromDateString("2020-10-24").format("[++] YYYY")).toBe("++ 2020");
   expect(AppDate.fromDateString("2020-10-24").format("MMM")).toBe("Okt.");
@@ -100,6 +119,151 @@ describe("isToday", () => {
     try {
       expect(AppDate.fromDateString("2023-12-31").isToday()).toBe(true);
       expect(AppDate.fromDateString("2024-01-01").isToday()).toBe(false);
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+});
+
+describe("isFirstDayOfWeek", () => {
+  test("honours the English Sunday week start", async () => {
+    setSystemTime(new Date("2024-01-07T12:00:00Z"));
+    await setAppDateLanguage("en");
+
+    try {
+      expect(AppDate.fromDateString("2024-01-07").isFirstDayOfWeek()).toBe(true);
+      expect(AppDate.fromDateString("2024-01-08").isFirstDayOfWeek()).toBe(false);
+    } finally {
+      setSystemTime();
+      await setAppDateLanguage("de");
+    }
+  });
+
+  test("keeps Monday as the first day for German", async () => {
+    setSystemTime(new Date("2024-01-08T12:00:00Z"));
+    await setAppDateLanguage("de");
+
+    try {
+      expect(AppDate.fromDateString("2024-01-07").isFirstDayOfWeek()).toBe(false);
+      expect(AppDate.fromDateString("2024-01-08").isFirstDayOfWeek()).toBe(true);
+    } finally {
+      setSystemTime();
+      await setAppDateLanguage("de");
+    }
+  });
+});
+
+describe("working day and range logic", () => {
+  test("identifies working days across a full week", () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const week = [
+        ["2024-01-08", true],
+        ["2024-01-09", true],
+        ["2024-01-10", true],
+        ["2024-01-11", true],
+        ["2024-01-12", true],
+        ["2024-01-13", false],
+        ["2024-01-14", false],
+      ] as const;
+
+      for (const [date, expected] of week) {
+        expect(AppDate.fromDateString(date).isWorkingDay()).toBe(expected);
+      }
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+
+  test("finds the next working day across weekends", () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const cases = [
+        ["2024-01-12", "2024-01-15"],
+        ["2024-01-13", "2024-01-15"],
+        ["2024-01-14", "2024-01-15"],
+        ["2024-01-15", "2024-01-16"],
+      ] as const;
+
+      for (const [date, expected] of cases) {
+        expect(AppDate.fromDateString(date).nextWorkingDay().toDateString()).toBe(expected);
+      }
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+
+  test("finds the previous working day across weekends", () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const cases = [
+        ["2024-01-12", "2024-01-11"],
+        ["2024-01-13", "2024-01-12"],
+        ["2024-01-14", "2024-01-12"],
+        ["2024-01-15", "2024-01-12"],
+      ] as const;
+
+      for (const [date, expected] of cases) {
+        expect(AppDate.fromDateString(date).previousWorkingDay().toDateString()).toBe(expected);
+      }
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+
+  test("adds working days and preserves the guard behavior", () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const wednesday = AppDate.fromDateString("2024-01-10");
+
+      expect(wednesday.addWorkingDays(1).toDateString()).toBe("2024-01-11");
+      expect(wednesday.addWorkingDays(5).toDateString()).toBe("2024-01-17");
+      expect(wednesday.addWorkingDays(10).toDateString()).toBe("2024-01-24");
+
+      for (const days of [0, -1, 1.5]) {
+        expect(wednesday.addWorkingDays(days)).toBe(wednesday);
+      }
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+
+  test("supports every isBetween inclusivity mode and default bounds", () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const from = AppDate.fromDateString("2024-01-10");
+      const inside = AppDate.fromDateString("2024-01-15");
+      const to = AppDate.fromDateString("2024-01-20");
+      const modes = [
+        ["()", false, false],
+        ["[]", true, true],
+        ["[)", true, false],
+        ["(]", false, true],
+      ] as const;
+
+      for (const [inclusivity, includesFrom, includesTo] of modes) {
+        expect(from.isBetween(from, to, "day", inclusivity)).toBe(includesFrom);
+        expect(to.isBetween(from, to, "day", inclusivity)).toBe(includesTo);
+      }
+
+      expect(inside.isBetween()).toBe(true);
+      expect(AppDate.minDate().isBetween()).toBe(true);
+      expect(AppDate.maxDate().isBetween()).toBe(false);
     } finally {
       setSystemTime();
       setTimezone("Europe/Zurich");
@@ -330,6 +494,42 @@ describe("toRelative", () => {
     await setAppDateLanguage("sr-ije");
     const fifteenDaysAgo = AppDate.now().subtract(15, "day");
     expect(fifteenDaysAgo.toRelative({ cap: 9 })).toBe("prije 9+ dana");
+  });
+
+  test("keeps large English caps in days for past and future dates", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+    await setAppDateLanguage("en");
+
+    try {
+      for (const cap of [7, 9, 30, 45]) {
+        const past = AppDate.now().subtract(cap + 10, "day");
+        const future = AppDate.now().add(cap + 10, "day");
+
+        expect(past.toRelative({ cap })).toBe(`${cap}+ days ago`);
+        expect(future.toRelative({ cap })).toBe(`in ${cap}+ days`);
+      }
+    } finally {
+      setSystemTime();
+      await setAppDateLanguage("de");
+    }
+  });
+
+  test("keeps large sr-ije caps in days for past and future dates", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+    await setAppDateLanguage("sr-ije");
+
+    try {
+      for (const cap of [7, 9, 30, 45]) {
+        const past = AppDate.now().subtract(cap + 10, "day");
+        const future = AppDate.now().add(cap + 10, "day");
+
+        expect(past.toRelative({ cap })).toBe(`prije ${cap}+ dana`);
+        expect(future.toRelative({ cap })).toBe(`za ${cap}+ dana`);
+      }
+    } finally {
+      setSystemTime();
+      await setAppDateLanguage("de");
+    }
   });
 
   test("falls back to date after threshold", async () => {
