@@ -225,10 +225,65 @@ test("invalid input stays silent", async () => {
   }
 });
 
-test("format", async () => {
-  await configure();
-  expect(AppDate.fromDateString("2020-10-24").format("[++] YYYY")).toBe("++ 2020");
-  expect(AppDate.fromDateString("2020-10-24").format("MMM")).toBe("Okt.");
+describe("format", () => {
+  test("formats supported Day.js templates", async () => {
+    await configure();
+    const date = AppDate.fromDateString("2020-10-24");
+
+    expect(date.format("[++] YYYY")).toBe("++ 2020");
+    expect(date.format("dd, DD.MM.")).toBe("Sa, 24.10.");
+    expect(date.format("LLLL")).toBe("Samstag, 24. Oktober 2020 00:00");
+    expect(date.format("DD.MM.YY · HH:mm")).toBe("24.10.20 · 00:00");
+    expect(date.format("MMM")).toBe("Okt.");
+  });
+
+  test("throws on foreign LDML weekday tokens", async () => {
+    await configure();
+    const date = AppDate.fromDateString("2020-10-24");
+
+    for (const token of ["E", "EE", "EEE", "EEEE", "EEEEE"]) {
+      expect(() => date.format(token)).toThrow(
+        `Unsupported format token "${token}". AppDate uses Day.js tokens — use "dddd" for the day of week.`
+      );
+    }
+    expect(() => date.format("EEEE, d MMMM")).toThrow(/"EEEE".*"dddd"/);
+  });
+
+  test("throws on foreign LDML year tokens", async () => {
+    await configure();
+    const date = AppDate.fromDateString("2020-10-24");
+
+    for (const token of ["y", "yy", "yyy", "yyyy", "yyyyy"]) {
+      expect(() => date.format(token)).toThrow(
+        `Unsupported format token "${token}". AppDate uses Day.js tokens — use "YYYY" for the year.`
+      );
+    }
+  });
+
+  test("throws on the first foreign token", async () => {
+    await configure();
+    const date = AppDate.fromDateString("2020-10-24");
+
+    expect(() => date.format("yy EEEE")).toThrow(/token "yy".*use "YYYY"/);
+  });
+
+  test("preserves escaped tokens and harmless literal letters", async () => {
+    await configure();
+    const date = AppDate.fromDateString("2020-10-24");
+
+    expect(date.format("[EEEE] dddd")).toBe("EEEE Samstag");
+    expect(date.format("[yyyy] YYYY")).toBe("yyyy 2020");
+    expect(date.format("TQ")).toBe("TQ");
+  });
+
+  test("keeps the default template valid", async () => {
+    await configure();
+    const date = AppDate.fromDateString("2020-10-24");
+    const expected = "2020-10-24T00:00:00+02:00Z";
+
+    expect(date.format()).toBe(expected);
+    expect(date.format("YYYY-MM-DDTHH:mm:ssZ[Z]")).toBe(expected);
+  });
 });
 
 /**

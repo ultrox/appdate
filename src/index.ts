@@ -101,6 +101,21 @@ type DateString = `${string}-${string}-${string}`; // YYYY-MM-DD
 
 const LOCAL_TIME_FORMAT = "HH:mm";
 const UTC_TIME_FORMAT = "HH:mm:ssZ";
+const FOREIGN_FORMAT_SEGMENT = /\[[^\]]*]|E+|y+/g;
+
+function assertSupportedFormatTemplate(template: string): void {
+  for (const [token] of template.matchAll(FOREIGN_FORMAT_SEGMENT)) {
+    if (!token.startsWith("[")) {
+      const isWeekdayToken = token.startsWith("E");
+      const replacement = isWeekdayToken ? "dddd" : "YYYY";
+      const meaning = isWeekdayToken ? "day of week" : "year";
+
+      throw new Error(
+        `Unsupported format token "${token}". AppDate uses Day.js tokens — use "${replacement}" for the ${meaning}. Wrap literal text in square brackets, e.g. "[${token}]".`
+      );
+    }
+  }
+}
 
 function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
   if (typeof globalThis.Intl === "undefined") {
@@ -515,8 +530,10 @@ export class AppDate {
    * @see {@link https://day.js.org/docs/en/display/format|Day.js format documentation}
    *
    * The template uses Day.js format tokens, such as dddd for the day of the week.
+   * @throws {Error} If the template contains an unescaped foreign E or y token.
    */
   format(template: FormatTemplate = "YYYY-MM-DDTHH:mm:ssZ[Z]") {
+    assertSupportedFormatTemplate(template);
     return this.dayjsDate.format(template);
   }
 
