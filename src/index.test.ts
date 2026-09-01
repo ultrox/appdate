@@ -154,6 +154,123 @@ describe("isFirstDayOfWeek", () => {
   });
 });
 
+describe("working day and range logic", () => {
+  test("identifies working days across a full week", () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const week = [
+        ["2024-01-08", true],
+        ["2024-01-09", true],
+        ["2024-01-10", true],
+        ["2024-01-11", true],
+        ["2024-01-12", true],
+        ["2024-01-13", false],
+        ["2024-01-14", false],
+      ] as const;
+
+      for (const [date, expected] of week) {
+        expect(AppDate.fromDateString(date).isWorkingDay()).toBe(expected);
+      }
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+
+  test("finds the next working day across weekends", () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const cases = [
+        ["2024-01-12", "2024-01-15"],
+        ["2024-01-13", "2024-01-15"],
+        ["2024-01-14", "2024-01-15"],
+        ["2024-01-15", "2024-01-16"],
+      ] as const;
+
+      for (const [date, expected] of cases) {
+        expect(AppDate.fromDateString(date).nextWorkingDay().toDateString()).toBe(expected);
+      }
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+
+  test("finds the previous working day across weekends", () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const cases = [
+        ["2024-01-12", "2024-01-11"],
+        ["2024-01-13", "2024-01-12"],
+        ["2024-01-14", "2024-01-12"],
+        ["2024-01-15", "2024-01-12"],
+      ] as const;
+
+      for (const [date, expected] of cases) {
+        expect(AppDate.fromDateString(date).previousWorkingDay().toDateString()).toBe(expected);
+      }
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+
+  test("adds working days and preserves the guard behavior", () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const wednesday = AppDate.fromDateString("2024-01-10");
+
+      expect(wednesday.addWorkingDays(1).toDateString()).toBe("2024-01-11");
+      expect(wednesday.addWorkingDays(5).toDateString()).toBe("2024-01-17");
+      expect(wednesday.addWorkingDays(10).toDateString()).toBe("2024-01-24");
+
+      for (const days of [0, -1, 1.5]) {
+        expect(wednesday.addWorkingDays(days)).toBe(wednesday);
+      }
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+
+  test("supports every isBetween inclusivity mode and default bounds", () => {
+    setSystemTime(new Date("2024-01-10T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const from = AppDate.fromDateString("2024-01-10");
+      const inside = AppDate.fromDateString("2024-01-15");
+      const to = AppDate.fromDateString("2024-01-20");
+      const modes = [
+        ["()", false, false],
+        ["[]", true, true],
+        ["[)", true, false],
+        ["(]", false, true],
+      ] as const;
+
+      for (const [inclusivity, includesFrom, includesTo] of modes) {
+        expect(from.isBetween(from, to, "day", inclusivity)).toBe(includesFrom);
+        expect(to.isBetween(from, to, "day", inclusivity)).toBe(includesTo);
+      }
+
+      expect(inside.isBetween()).toBe(true);
+      expect(AppDate.minDate().isBetween()).toBe(true);
+      expect(AppDate.maxDate().isBetween()).toBe(false);
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+});
+
 describe("initializeAppDate", () => {
   test("rejects invalid timezones without changing the current config", async () => {
     await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
