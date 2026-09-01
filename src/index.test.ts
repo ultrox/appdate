@@ -332,6 +332,42 @@ describe("toRelative", () => {
     expect(fifteenDaysAgo.toRelative({ cap: 9 })).toBe("prije 9+ dana");
   });
 
+  test("keeps large English caps in days for past and future dates", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+    await setAppDateLanguage("en");
+
+    try {
+      for (const cap of [7, 9, 30, 45]) {
+        const past = AppDate.now().subtract(cap + 10, "day");
+        const future = AppDate.now().add(cap + 10, "day");
+
+        expect(past.toRelative({ cap })).toBe(`${cap}+ days ago`);
+        expect(future.toRelative({ cap })).toBe(`in ${cap}+ days`);
+      }
+    } finally {
+      setSystemTime();
+      await setAppDateLanguage("de");
+    }
+  });
+
+  test("keeps large sr-ije caps in days for past and future dates", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+    await setAppDateLanguage("sr-ije");
+
+    try {
+      for (const cap of [7, 9, 30, 45]) {
+        const past = AppDate.now().subtract(cap + 10, "day");
+        const future = AppDate.now().add(cap + 10, "day");
+
+        expect(past.toRelative({ cap })).toBe(`prije ${cap}+ dana`);
+        expect(future.toRelative({ cap })).toBe(`za ${cap}+ dana`);
+      }
+    } finally {
+      setSystemTime();
+      await setAppDateLanguage("de");
+    }
+  });
+
   test("falls back to date after threshold", async () => {
     await setAppDateLanguage("en");
     const twentyDaysAgo = AppDate.now().subtract(20, "day");
