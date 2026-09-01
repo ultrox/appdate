@@ -33,6 +33,7 @@
     "test": "bun test",
     "test:vitest": "vitest run --reporter=verbose",
     "test:watch": "vitest --reporter=verbose",
+    "test:ui": "vitest --ui --no-open --api.host 0.0.0.0",
     "lint": "eslint src/",
     "format": "prettier --check src/",
     "format:fix": "prettier --write src/",
@@ -44,6 +45,7 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.52.0",
     "@typescript-eslint/parser": "^8.52.0",
+    "@vitest/ui": "~2.0.5",
     "bun-types": "latest",
     "eslint": "^9.39.2",
     "prettier": "^3.7.4",
