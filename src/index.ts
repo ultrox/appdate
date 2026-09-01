@@ -1,4 +1,4 @@
-import type { Dayjs, ManipulateType, OpUnitType } from "dayjs";
+import type { Dayjs, ManipulateType, OpUnitType, QUnitType } from "dayjs";
 import dayjs from "dayjs";
 import "dayjs/locale/de.js";
 
@@ -314,6 +314,10 @@ export class AppDate {
 
   isAfter(other: AppDate, unit?: OpUnitType) {
     return this.dayjsDate.isAfter(other.dayjsDate, unit);
+  }
+
+  diff(other: AppDate, unit: QUnitType | OpUnitType = "millisecond", float = false) {
+    return this.dayjsDate.diff(other.dayjsDate, unit, float);
   }
 
   isBetween(

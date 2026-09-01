@@ -107,6 +107,27 @@ describe("isToday", () => {
   });
 });
 
+describe("diff", () => {
+  test("mirrors Day.js units, signs, truncation, and floating results", () => {
+    setTimezone("UTC");
+
+    try {
+      const earlier = AppDate.fromEpochMillis(Date.parse("2024-01-01T00:00:00Z"));
+      const later = AppDate.fromEpochMillis(Date.parse("2024-01-02T23:00:00Z"));
+
+      expect(later.diff(earlier)).toBe(47 * 60 * 60 * 1000);
+      expect(later.diff(earlier, "second")).toBe(47 * 60 * 60);
+      expect(later.diff(earlier, "hour")).toBe(47);
+      expect(earlier.diff(later, "hour")).toBe(-47);
+      expect(later.diff(earlier, "day")).toBe(1);
+      expect(earlier.diff(later, "day")).toBe(-1);
+      expect(later.diff(earlier, "day", true)).toBeCloseTo(47 / 24);
+    } finally {
+      setTimezone("Europe/Zurich");
+    }
+  });
+});
+
 describe("fromEpochSeconds", () => {
   test("creates date from unix timestamp", async () => {
     await setAppDateLanguage("de");
