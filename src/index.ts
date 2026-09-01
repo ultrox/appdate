@@ -1,6 +1,6 @@
 import type { Dayjs, ManipulateType, OpUnitType } from "dayjs";
 import dayjs from "dayjs";
-import "dayjs/locale/de";
+import "dayjs/locale/de.js";
 
 // https://github.com/iamkun/dayjs/issues/1167
 import customParseFormatPlugin from "dayjs/plugin/customParseFormat.js";
@@ -27,17 +27,17 @@ dayjs.extend(relativeTimePlugin);
 export async function setAppDateLanguage(lang: "de" | "en" | "fr" | "sr" | "sr-ije") {
   switch (lang) {
     case "de": {
-      const de = await import("dayjs/locale/de-ch");
+      const de = await import("dayjs/locale/de-ch.js");
       dayjs.locale(de.default);
       break;
     }
     case "fr": {
-      const fr = await import("dayjs/locale/fr-ch");
+      const fr = await import("dayjs/locale/fr-ch.js");
       dayjs.locale(fr.default);
       break;
     }
     case "sr": {
-      const sr = await import("dayjs/locale/sr");
+      const sr = await import("dayjs/locale/sr.js");
       dayjs.locale(sr.default);
       break;
     }
@@ -49,7 +49,7 @@ export async function setAppDateLanguage(lang: "de" | "en" | "fr" | "sr" | "sr-i
     }
     case "en":
     default: {
-      const en = await import("dayjs/locale/en");
+      const en = await import("dayjs/locale/en.js");
       dayjs.locale(en.default);
       break;
     }
@@ -162,7 +162,7 @@ export class AppDate {
    * @example
    * ```typescript
    * const date = AppDate.fromEpochSeconds(1714732800);
-   * console.log(date.toLocalizedDateString()); // "04.01.2026"
+   * console.log(date.toLocalizedDateString()); // "03.05.2024"
    * ```
    */
   static fromEpochSeconds(seconds: number): AppDate {
@@ -179,7 +179,7 @@ export class AppDate {
    * @example
    * ```typescript
    * const date = AppDate.fromEpochMillis(1714732800000);
-   * console.log(date.toLocalizedDateString()); // "04.01.2026"
+   * console.log(date.toLocalizedDateString()); // "03.05.2024"
    * ```
   }
   */
