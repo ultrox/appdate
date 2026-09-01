@@ -1,4 +1,4 @@
-import { expect, test, describe, beforeAll } from "bun:test";
+import { expect, test, describe, beforeAll, setSystemTime } from "bun:test";
 // import { expect, describe, test } from 'vitest';
 import { AppDate, setAppDateLanguage } from "./index";
 
@@ -105,9 +105,14 @@ describe("fromUtcString", () => {
 
 describe("fromUtcTime", () => {
   test("creates date from UTC time string", () => {
-    const date = AppDate.fromUtcTime("14:30:00+00:00");
-    expect(date.isValid()).toBe(true);
-    expect(date.toLocalTime()).toBe("15:30"); // UTC+1 (Europe/Zurich winter)
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+    try {
+      const date = AppDate.fromUtcTime("14:30:00+00:00");
+      expect(date.isValid()).toBe(true);
+      expect(date.toLocalTime()).toBe("15:30"); // UTC+1 (Europe/Zurich winter)
+    } finally {
+      setSystemTime();
+    }
   });
 
   test("handles midnight UTC", () => {
