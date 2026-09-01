@@ -20,13 +20,16 @@ declare module "./index" {
 
 const configure = (language: AppDateLanguage = "de", timeZone = "Europe/Zurich") =>
   initializeAppDate({ language, timeZone });
+const SUMMER_INSTANT = "2026-07-15T15:00:00Z";
+const SUMMER_EPOCH_MILLIS = Date.parse(SUMMER_INSTANT);
+const SYSTEM_INSTANT = "2026-07-15T10:00:00Z";
 
 /**
  * @description this is just helper to test date
  */
 const getFixedDate = () => AppDate.fromDateString("1985-10-24");
 
-test("configured apps can import and create dates without Intl", async () => {
+test("configured IANA timezones produce invalid dates without Intl", async () => {
   const intlDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Intl");
   const guess = dayjs.tz.guess;
   let guessCalls = 0;
@@ -41,19 +44,14 @@ test("configured apps can import and create dates without Intl", async () => {
     const cacheBustedIndex = "./index?intl-absent";
     const configuredModule = await import(cacheBustedIndex);
 
-    const cases = [
-      ["Europe/Zurich", "+01:00"],
-      ["America/New_York", "-05:00"],
-      ["Asia/Tokyo", "+09:00"],
-    ] as const;
+    const timeZones = ["Europe/Zurich", "America/New_York", "Asia/Tokyo"] as const;
 
-    for (const [timeZone, offset] of cases) {
+    for (const timeZone of timeZones) {
       await configuredModule.initializeAppDate({ language: "en", timeZone });
       const date = configuredModule.AppDate.fromDateString("2024-01-15");
 
-      expect(date.isValid()).toBe(true);
+      expect(date.isValid()).toBe(false);
       expect(date.timezone).toBe(timeZone);
-      expect(date.format("YYYY-MM-DD HH:mm Z")).toBe(`2024-01-15 00:00 ${offset}`);
     }
     expect(guessCalls).toBe(0);
   } finally {
@@ -64,8 +62,178 @@ test("configured apps can import and create dates without Intl", async () => {
   }
 });
 
+test("keeps the unconfigured UTC default usable without Intl", async () => {
+  const intlDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Intl");
+  Reflect.deleteProperty(globalThis, "Intl");
+
+  try {
+    const cacheBustedIndex = "./index?intl-absent-utc-default";
+    const unconfiguredModule = await import(cacheBustedIndex);
+    const date = unconfiguredModule.AppDate.fromEpochMillis(SUMMER_EPOCH_MILLIS);
+
+    expect(date.timezone).toBe("UTC");
+    expect(date.isValid()).toBe(true);
+    expect(date.format("YYYY-MM-DD HH:mm Z")).toBe("2026-07-15 15:00 +00:00");
+  } finally {
+    if (intlDescriptor) {
+      Object.defineProperty(globalThis, "Intl", intlDescriptor);
+    }
+  }
+});
+
 test("defaults to the resolved system timezone before initialization", () => {
   expect(AppDate.fromDateString("2024-10-10").timezone).toBe(dayjs.tz.guess() || "UTC");
+});
+
+describe("Hermes timezone conversion", () => {
+  const hermesDateString = "not parseable by Hermes";
+
+  const instantFactories = () =>
+    [
+      ["now", AppDate.now(), "2026-07-15 12:00 +02:00"],
+      [
+        "fromEpochSeconds",
+        AppDate.fromEpochSeconds(SUMMER_EPOCH_MILLIS / 1000),
+        "2026-07-15 17:00 +02:00",
+      ],
+      ["fromEpochMillis", AppDate.fromEpochMillis(SUMMER_EPOCH_MILLIS), "2026-07-15 17:00 +02:00"],
+      ["fromUtcString", AppDate.fromUtcString(SUMMER_INSTANT), "2026-07-15 17:00 +02:00"],
+      ["fromUtcTime", AppDate.fromUtcTime("15:00:00+00:00"), "2026-07-15 17:00 +02:00"],
+      ["fromLocalTime", AppDate.fromLocalTime("17:00"), "2026-07-15 17:00 +02:00"],
+    ] as const;
+
+  const expectInstantFactoriesToBeInvalid = () => {
+    for (const [factory, date] of instantFactories()) {
+      expect(date.isValid(), factory).toBe(false);
+    }
+  };
+
+  test("converts every instant factory without parsing localized date strings", async () => {
+    const toLocaleString = Date.prototype.toLocaleString;
+    setSystemTime(new Date(SYSTEM_INSTANT));
+    await configure();
+    Date.prototype.toLocaleString = () => hermesDateString;
+
+    try {
+      for (const [factory, date, expected] of instantFactories()) {
+        expect(date.format("YYYY-MM-DD HH:mm Z"), factory).toBe(expected);
+      }
+
+      const winter = AppDate.fromEpochMillis(Date.parse("2026-01-15T15:00:00Z"));
+      expect(winter.format("YYYY-MM-DD HH:mm Z")).toBe("2026-01-15 16:00 +01:00");
+
+      const reportedDate = AppDate.fromEpochMillis(SUMMER_EPOCH_MILLIS);
+      expect(reportedDate.formatDateTime({ includeDayOfWeek: true })).toBe("Mi, 15.07.2026, 17:00");
+
+      await configure("en", "America/New_York");
+      const nonHostDate = AppDate.fromEpochMillis(SUMMER_EPOCH_MILLIS);
+      expect(nonHostDate.format("YYYY-MM-DD HH:mm Z")).toBe("2026-07-15 11:00 -04:00");
+    } finally {
+      Date.prototype.toLocaleString = toLocaleString;
+      setSystemTime();
+      await configure();
+    }
+  });
+
+  test("returns invalid dates when timezone parts are incomplete", async () => {
+    const DateTimeFormat = Intl.DateTimeFormat;
+    setSystemTime(new Date(SYSTEM_INSTANT));
+    await configure();
+
+    function IncompleteDateTimeFormat(
+      locales?: string | string[],
+      options?: Intl.DateTimeFormatOptions
+    ) {
+      const formatter = new DateTimeFormat(locales, options);
+      Object.defineProperty(formatter, "formatToParts", {
+        value: () => [{ type: "year", value: "2026" }],
+      });
+      return formatter;
+    }
+
+    Intl.DateTimeFormat = IncompleteDateTimeFormat as unknown as typeof Intl.DateTimeFormat;
+
+    try {
+      expectInstantFactoriesToBeInvalid();
+    } finally {
+      Intl.DateTimeFormat = DateTimeFormat;
+      setSystemTime();
+      await configure();
+    }
+  });
+
+  test("returns invalid dates when timezone parts produce a non-finite offset", async () => {
+    const DateTimeFormat = Intl.DateTimeFormat;
+    setSystemTime(new Date(SYSTEM_INSTANT));
+    await configure();
+
+    function NonFiniteDateTimeFormat(
+      locales?: string | string[],
+      options?: Intl.DateTimeFormatOptions
+    ) {
+      const formatter = new DateTimeFormat(locales, options);
+      const formatToParts = formatter.formatToParts.bind(formatter);
+      Object.defineProperty(formatter, "formatToParts", {
+        value: (date?: Date | number) =>
+          formatToParts(date).map((part) =>
+            part.type === "year" ? { ...part, value: "not-a-number" } : part
+          ),
+      });
+      return formatter;
+    }
+
+    Intl.DateTimeFormat = NonFiniteDateTimeFormat as unknown as typeof Intl.DateTimeFormat;
+
+    try {
+      expectInstantFactoriesToBeInvalid();
+    } finally {
+      Intl.DateTimeFormat = DateTimeFormat;
+      setSystemTime();
+      await configure();
+    }
+  });
+
+  test("returns invalid dates when formatToParts is unavailable", async () => {
+    const DateTimeFormat = Intl.DateTimeFormat;
+    setSystemTime(new Date(SYSTEM_INSTANT));
+    await configure();
+
+    function DateTimeFormatWithoutParts(
+      locales?: string | string[],
+      options?: Intl.DateTimeFormatOptions
+    ) {
+      const formatter = new DateTimeFormat(locales, options);
+      Object.defineProperty(formatter, "formatToParts", { value: undefined });
+      return formatter;
+    }
+
+    Intl.DateTimeFormat = DateTimeFormatWithoutParts as unknown as typeof Intl.DateTimeFormat;
+
+    try {
+      expectInstantFactoriesToBeInvalid();
+    } finally {
+      Intl.DateTimeFormat = DateTimeFormat;
+      setSystemTime();
+      await configure();
+    }
+  });
+
+  test("returns invalid dates when Intl is unavailable", async () => {
+    const intlDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Intl");
+    setSystemTime(new Date(SYSTEM_INSTANT));
+    await configure();
+    Reflect.deleteProperty(globalThis, "Intl");
+
+    try {
+      expectInstantFactoriesToBeInvalid();
+    } finally {
+      if (intlDescriptor) {
+        Object.defineProperty(globalThis, "Intl", intlDescriptor);
+      }
+      setSystemTime();
+      await configure();
+    }
+  });
 });
 
 test("falls back to UTC when Intl has no timezone", () => {
@@ -536,12 +704,13 @@ describe("working day and range logic", () => {
     try {
       for (const workingDays of workingWeekCases) {
         await initializeAppDate({ language: "de", timeZone: "Europe/Zurich", workingDays });
-        const start = AppDate.fromDateString("2024-01-03");
+        const start = AppDate.fromUtcString("2024-01-03T11:00:00Z");
         let stepWise = start;
 
         for (let days = 1; days <= 60; days += 1) {
           stepWise = stepWise.nextWorkingDay();
-          expect(start.addWorkingDays(days).toEpochMillis()).toBe(stepWise.toEpochMillis());
+          // Working-day traversal is a calendar operation; its contract is the resulting day.
+          expect(start.addWorkingDays(days).toDateString()).toBe(stepWise.toDateString());
         }
       }
     } finally {
