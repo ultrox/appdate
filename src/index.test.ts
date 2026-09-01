@@ -92,6 +92,21 @@ describe("timezone preservation", () => {
   });
 });
 
+describe("isToday", () => {
+  test("compares today in the configured timezone", () => {
+    setSystemTime(new Date("2024-01-01T02:00:00Z"));
+    setTimezone("America/New_York");
+
+    try {
+      expect(AppDate.fromDateString("2023-12-31").isToday()).toBe(true);
+      expect(AppDate.fromDateString("2024-01-01").isToday()).toBe(false);
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+});
+
 describe("fromEpochSeconds", () => {
   test("creates date from unix timestamp", async () => {
     await setAppDateLanguage("de");

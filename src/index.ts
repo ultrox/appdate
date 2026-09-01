@@ -308,7 +308,8 @@ export class AppDate {
    * returns true if date is current day
    */
   isToday() {
-    return this.dayjsDate.endOf("d").isSame(dayjs().endOf("d"));
+    const today = dayjs.tz(dayjs(), this.timezone);
+    return this.dayjsDate.isSame(today, "day");
   }
 
   isAfter(other: AppDate, unit?: OpUnitType) {
