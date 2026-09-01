@@ -49,6 +49,25 @@ describe("fromDateString", () => {
   });
 });
 
+test("invalid input stays silent", () => {
+  const originalWarn = console.warn;
+  const warnings: unknown[][] = [];
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+
+  try {
+    expect(AppDate.fromDateString("not-a-date").isValid()).toBe(false);
+
+    setTimezone("Invalid/Zone");
+    expect(AppDate.fromLocalTime("11:12").isValid()).toBe(false);
+    expect(warnings).toEqual([]);
+  } finally {
+    setTimezone("Europe/Zurich");
+    console.warn = originalWarn;
+  }
+});
+
 test("format", () => {
   expect(AppDate.fromDateString("2020-10-24").format("[++] YYYY")).toBe("++ 2020");
   expect(AppDate.fromDateString("2020-10-24").format("MMM")).toBe("Okt.");

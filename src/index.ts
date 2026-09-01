@@ -134,8 +134,7 @@ export class AppDate {
         throw new Error("Invalid Date string, we expect YYYY-DD-MM");
       }
       this.dayjsDate = dayjs.tz(date, timezone);
-    } catch (_e) {
-      console.warn("Could not parse date:", date);
+    } catch {
       this.dayjsDate = AppDate.INVALID_DATE;
     }
   }
@@ -219,10 +218,7 @@ export class AppDate {
     try {
       const date = dayjs.tz(time, LOCAL_TIME_FORMAT, localTimezone);
       return new AppDate(localTimezone, date);
-    } catch (err) {
-      if (err instanceof Error) {
-        console.warn(`fromLocalTime(): ${err.message}`);
-      }
+    } catch {
       return AppDate.invalid();
     }
   }
