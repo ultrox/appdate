@@ -1,4 +1,4 @@
-import type { Dayjs, ManipulateType, OpUnitType } from "dayjs";
+import type { Dayjs, ManipulateType, OpUnitType, QUnitType } from "dayjs";
 import dayjs from "dayjs";
 import "dayjs/locale/de.js";
 
@@ -18,47 +18,64 @@ dayjs.extend(isBetweenPlugin);
 dayjs.extend(localizedFormat);
 dayjs.extend(relativeTimePlugin);
 
+export type AppDateLanguage = "de" | "en" | "fr" | "sr" | "sr-ije";
+
+export type AppDateConfig = {
+  language: AppDateLanguage;
+  timeZone: string;
+};
+
+const localeLoaders: Record<AppDateLanguage, () => Promise<void>> = {
+  de: async () => {
+    const de = await import("dayjs/locale/de-ch.js");
+    dayjs.locale(de.default);
+  },
+  en: async () => {
+    const en = await import("dayjs/locale/en.js");
+    dayjs.locale(en.default);
+  },
+  fr: async () => {
+    const fr = await import("dayjs/locale/fr-ch.js");
+    dayjs.locale(fr.default);
+  },
+  sr: async () => {
+    const sr = await import("dayjs/locale/sr.js");
+    dayjs.locale(sr.default);
+  },
+  "sr-ije": async () => {
+    const srIje = await import("./sr-ijekavian");
+    dayjs.locale(srIje.default, undefined, true);
+    dayjs.locale("sr-ije");
+  },
+};
+
 /**
  * Given language string, formaters, months, weeks
  * will be localized to provided language
  * de: 10.10.2010
  * en: 10/10/2010
+ * @deprecated Use initializeAppDate
  */
 export async function setAppDateLanguage(lang: "de" | "en" | "fr" | "sr" | "sr-ije") {
-  switch (lang) {
-    case "de": {
-      const de = await import("dayjs/locale/de-ch.js");
-      dayjs.locale(de.default);
-      break;
-    }
-    case "fr": {
-      const fr = await import("dayjs/locale/fr-ch.js");
-      dayjs.locale(fr.default);
-      break;
-    }
-    case "sr": {
-      const sr = await import("dayjs/locale/sr.js");
-      dayjs.locale(sr.default);
-      break;
-    }
-    case "sr-ije": {
-      const srIje = await import("./sr-ijekavian");
-      dayjs.locale(srIje.default, undefined, true);
-      dayjs.locale("sr-ije");
-      break;
-    }
-    case "en":
-    default: {
-      const en = await import("dayjs/locale/en.js");
-      dayjs.locale(en.default);
-      break;
-    }
-  }
+  await (localeLoaders[lang] ?? localeLoaders.en)();
 }
 
 let localTimezone = "Europe/Zurich";
+
+export async function initializeAppDate(config: AppDateConfig): Promise<void> {
+  try {
+    dayjs().tz(config.timeZone);
+  } catch {
+    throw new Error(`Invalid timezone: ${config.timeZone}`);
+  }
+
+  await setAppDateLanguage(config.language);
+  localTimezone = config.timeZone;
+}
+
 /**
  * Change zone in runtime
+ * @deprecated Use initializeAppDate
  */
 export function setTimezone(timezone: string) {
   localTimezone = timezone;
@@ -212,9 +229,10 @@ export class AppDate {
   }
 
   /**
+   * Creates an AppDate from a UTC date or datetime string.
    *
-   * @param date - A string representing a UTC date in "YYYY-MM-DD" format.
-   * @returns A new AppDate instance set to the given UTC date.
+   * @param date - A "YYYY-MM-DD" date or full ISO 8601 datetime, parsed as UTC.
+   * @returns A new AppDate instance set to the given UTC date or datetime.
    *
    * @example
    * const date = AppDate.fromUtcString("2026-01-04");
@@ -270,22 +288,22 @@ export class AppDate {
 
   add(value: number, unit?: ManipulateType) {
     const date = this.dayjsDate.add(value, unit);
-    return new AppDate(localTimezone, date);
+    return new AppDate(this.timezone, date);
   }
 
   subtract(value: number, unit?: ManipulateType) {
     const date = this.dayjsDate.subtract(value, unit);
-    return new AppDate(localTimezone, date);
+    return new AppDate(this.timezone, date);
   }
 
   startOf(unit: OpUnitType) {
     const date = this.dayjsDate.startOf(unit);
-    return new AppDate(localTimezone, date);
+    return new AppDate(this.timezone, date);
   }
 
   endOf(unit: OpUnitType) {
     const date = this.dayjsDate.endOf(unit);
-    return new AppDate(localTimezone, date);
+    return new AppDate(this.timezone, date);
   }
 
   tomorrow() {
@@ -308,11 +326,16 @@ export class AppDate {
    * returns true if date is current day
    */
   isToday() {
-    return this.dayjsDate.endOf("d").isSame(dayjs().endOf("d"));
+    const today = dayjs.tz(dayjs(), this.timezone);
+    return this.dayjsDate.isSame(today, "day");
   }
 
   isAfter(other: AppDate, unit?: OpUnitType) {
     return this.dayjsDate.isAfter(other.dayjsDate, unit);
+  }
+
+  diff(other: AppDate, unit: QUnitType | OpUnitType = "millisecond", float = false) {
+    return this.dayjsDate.diff(other.dayjsDate, unit, float);
   }
 
   isBetween(

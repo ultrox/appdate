@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeAll, setSystemTime } from "bun:test";
 // import { expect, describe, test } from 'vitest';
-import { AppDate, setAppDateLanguage } from "./index";
+import { AppDate, initializeAppDate, setAppDateLanguage, setTimezone } from "./index";
 
 beforeAll(async () => {
   await setAppDateLanguage("de");
@@ -74,6 +74,99 @@ test("formatDateTime", () => {
   expect(result).toBe("24.10.1985");
 });
 
+describe("timezone preservation", () => {
+  test("add preserves the instance timezone and wall-clock time", () => {
+    setTimezone("Europe/Zurich");
+    try {
+      const date = AppDate.fromDateString("2024-01-15");
+      setTimezone("America/New_York");
+
+      const nextDay = date.add(1, "day");
+
+      expect(nextDay.timezone).toBe("Europe/Zurich");
+      expect(nextDay.toDateString()).toBe("2024-01-16");
+      expect(nextDay.toLocalTime()).toBe("00:00");
+    } finally {
+      setTimezone("Europe/Zurich");
+    }
+  });
+});
+
+describe("isToday", () => {
+  test("compares today in the configured timezone", () => {
+    setSystemTime(new Date("2024-01-01T02:00:00Z"));
+    setTimezone("America/New_York");
+
+    try {
+      expect(AppDate.fromDateString("2023-12-31").isToday()).toBe(true);
+      expect(AppDate.fromDateString("2024-01-01").isToday()).toBe(false);
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
+  });
+});
+
+describe("initializeAppDate", () => {
+  test("rejects invalid timezones without changing the current config", async () => {
+    await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+
+    await expect(initializeAppDate({ language: "en", timeZone: "Invalid/Zone" })).rejects.toThrow(
+      "Invalid timezone: Invalid/Zone"
+    );
+
+    const date = AppDate.fromDateString("2024-01-15");
+    expect(date.timezone).toBe("Europe/Zurich");
+    expect(date.format("MMMM")).toBe("Januar");
+  });
+
+  test("applies the language and timezone together", async () => {
+    try {
+      await initializeAppDate({ language: "en", timeZone: "America/New_York" });
+
+      const date = AppDate.fromDateString("2024-01-15");
+      expect(date.timezone).toBe("America/New_York");
+      expect(date.format("MMMM")).toBe("January");
+    } finally {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
+
+  test("can be called again with a different config", async () => {
+    try {
+      await initializeAppDate({ language: "en", timeZone: "America/New_York" });
+      await initializeAppDate({ language: "fr", timeZone: "Europe/Paris" });
+
+      const date = AppDate.fromDateString("2024-01-15");
+      expect(date.timezone).toBe("Europe/Paris");
+      expect(date.format("MMMM")).toBe("janvier");
+    } finally {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
+});
+
+describe("diff", () => {
+  test("mirrors Day.js units, signs, truncation, and floating results", () => {
+    setTimezone("UTC");
+
+    try {
+      const earlier = AppDate.fromEpochMillis(Date.parse("2024-01-01T00:00:00Z"));
+      const later = AppDate.fromEpochMillis(Date.parse("2024-01-02T23:00:00Z"));
+
+      expect(later.diff(earlier)).toBe(47 * 60 * 60 * 1000);
+      expect(later.diff(earlier, "second")).toBe(47 * 60 * 60);
+      expect(later.diff(earlier, "hour")).toBe(47);
+      expect(earlier.diff(later, "hour")).toBe(-47);
+      expect(later.diff(earlier, "day")).toBe(1);
+      expect(earlier.diff(later, "day")).toBe(-1);
+      expect(later.diff(earlier, "day", true)).toBeCloseTo(47 / 24);
+    } finally {
+      setTimezone("Europe/Zurich");
+    }
+  });
+});
+
 describe("fromEpochSeconds", () => {
   test("creates date from unix timestamp", async () => {
     await setAppDateLanguage("de");
@@ -94,6 +187,21 @@ describe("fromUtcString", () => {
     const date = AppDate.fromUtcString("2024-06-15");
     expect(date.isValid()).toBe(true);
     expect(date.toDateString()).toBe("2024-06-15");
+  });
+
+  test("creates date from a full ISO 8601 UTC datetime", () => {
+    setSystemTime(new Date("2026-01-13T12:00:00Z"));
+    setTimezone("Europe/Zurich");
+
+    try {
+      const date = AppDate.fromUtcString("2026-01-13T10:30:00Z");
+      expect(date.isValid()).toBe(true);
+      expect(date.toDateString()).toBe("2026-01-13");
+      expect(date.toLocalTime()).toBe("11:30");
+    } finally {
+      setSystemTime();
+      setTimezone("Europe/Zurich");
+    }
   });
 
   test("creates current date when no argument passed", () => {
