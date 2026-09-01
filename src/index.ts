@@ -57,10 +57,13 @@ async function loadLocale(lang: AppDateLanguage) {
 }
 
 const DEFAULT_WORKING_DAYS: readonly number[] = [1, 2, 3, 4, 5];
-const DEFAULT_TIMEZONE = resolveSystemTimezone();
 
-let localTimezone = DEFAULT_TIMEZONE;
+let localTimezone: string | undefined;
 let workingDays: readonly number[] = DEFAULT_WORKING_DAYS;
+
+function currentTimezone(): string {
+  return (localTimezone ??= resolveSystemTimezone());
+}
 
 function validateWorkingDays(value: unknown): readonly number[] {
   if (value === undefined) {
@@ -98,6 +101,15 @@ type DateString = `${string}-${string}-${string}`; // YYYY-MM-DD
 
 const LOCAL_TIME_FORMAT = "HH:mm";
 const UTC_TIME_FORMAT = "HH:mm:ssZ";
+
+function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
+  if (typeof globalThis.Intl === "undefined") {
+    const parsedDate = typeof date === "string" ? dayjs.utc(date) : date;
+    return parsedDate.tz(timezone, typeof date === "string");
+  }
+
+  return dayjs.tz(date, timezone);
+}
 
 /**
  * AppDate: A timezone-aware date and time abstraction.
@@ -147,7 +159,7 @@ export class AppDate {
       if (typeof date === "string" && !isDateString(date)) {
         throw new Error("Invalid Date string, we expect YYYY-DD-MM");
       }
-      this.dayjsDate = dayjs.tz(date, timezone);
+      this.dayjsDate = inTimezone(date, timezone);
     } catch {
       this.dayjsDate = AppDate.INVALID_DATE;
     }
@@ -159,11 +171,11 @@ export class AppDate {
    * null object pattern and plays nicely with validation
    */
   static invalid() {
-    return new AppDate(localTimezone, "", { invalid: true });
+    return new AppDate(currentTimezone(), "", { invalid: true });
   }
 
   static now() {
-    return new AppDate(localTimezone, dayjs());
+    return new AppDate(currentTimezone(), dayjs());
   }
 
   /**
@@ -179,7 +191,7 @@ export class AppDate {
    * const date = AppDate.fromDateString("2023-05-21");
    */
   static fromDateString(date: string) {
-    return new AppDate(localTimezone, date);
+    return new AppDate(currentTimezone(), date);
   }
 
   /**
@@ -196,7 +208,7 @@ export class AppDate {
    */
   static fromEpochSeconds(seconds: number): AppDate {
     const date = dayjs.unix(seconds);
-    return new AppDate(localTimezone, date);
+    return new AppDate(currentTimezone(), date);
   }
 
   /**
@@ -214,7 +226,7 @@ export class AppDate {
   */
   static fromEpochMillis(ms: number): AppDate {
     const date = dayjs(ms);
-    return new AppDate(localTimezone, date);
+    return new AppDate(currentTimezone(), date);
   }
   /**
    * Creates a AppDate instance from a local time string.
@@ -229,9 +241,11 @@ export class AppDate {
    * const date = AppDate.fromLocalTime("14:30"); Today's date, 14:30 or (02:30 PM)
    */
   static fromLocalTime(time: string) {
+    const timezone = currentTimezone();
+
     try {
-      const date = dayjs.tz(time, LOCAL_TIME_FORMAT, localTimezone);
-      return new AppDate(localTimezone, date);
+      const date = dayjs.tz(time, LOCAL_TIME_FORMAT, timezone);
+      return new AppDate(timezone, date);
     } catch {
       return AppDate.invalid();
     }
@@ -250,7 +264,7 @@ export class AppDate {
    */
   static fromUtcString(date?: string) {
     const utcdate = dayjs.utc(date);
-    return new AppDate(localTimezone, utcdate);
+    return new AppDate(currentTimezone(), utcdate);
   }
 
   /**
@@ -266,7 +280,7 @@ export class AppDate {
    */
   static fromUtcTime(time: string) {
     const date = dayjs.utc(time, UTC_TIME_FORMAT);
-    return new AppDate(localTimezone, date);
+    return new AppDate(currentTimezone(), date);
   }
   /**
    *
