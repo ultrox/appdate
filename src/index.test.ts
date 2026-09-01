@@ -38,7 +38,8 @@ test("configured apps can import and create dates without Intl", async () => {
   Reflect.deleteProperty(globalThis, "Intl");
 
   try {
-    const configuredModule = await import("./index?intl-absent");
+    const cacheBustedIndex = "./index?intl-absent";
+    const configuredModule = await import(cacheBustedIndex);
 
     const cases = [
       ["Europe/Zurich", "+01:00"],
