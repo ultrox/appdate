@@ -381,13 +381,29 @@ export class AppDate {
   }
 
   nextWorkingDay(): AppDate {
-    const tomorrow = this.add(1, "day");
-    return tomorrow.isWorkingDay() ? tomorrow : tomorrow.nextWorkingDay();
+    let date = this.add(1, "day");
+
+    for (let step = 0; step < 7; step += 1) {
+      if (date.isWorkingDay()) {
+        return date;
+      }
+      date = date.add(1, "day");
+    }
+
+    throw new Error("No working days configured");
   }
 
   previousWorkingDay(): AppDate {
-    const yesterday = this.subtract(1, "day");
-    return yesterday.isWorkingDay() ? yesterday : yesterday.previousWorkingDay();
+    let date = this.subtract(1, "day");
+
+    for (let step = 0; step < 7; step += 1) {
+      if (date.isWorkingDay()) {
+        return date;
+      }
+      date = date.subtract(1, "day");
+    }
+
+    throw new Error("No working days configured");
   }
 
   addWorkingDays(days: number): AppDate {
@@ -395,7 +411,13 @@ export class AppDate {
       return this;
     }
 
-    return this.nextWorkingDay().addWorkingDays(days - 1);
+    let date = this.nextWorkingDay();
+
+    for (let remaining = days - 1; remaining > 0; remaining -= 1) {
+      date = date.nextWorkingDay();
+    }
+
+    return date;
   }
 
   /*** Formatters ***/

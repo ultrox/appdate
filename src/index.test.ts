@@ -241,6 +241,20 @@ describe("working day and range logic", () => {
     }
   });
 
+  test("adds twenty thousand working days without overflowing the stack", async () => {
+    setSystemTime(new Date("2024-01-03T12:00:00Z"));
+
+    try {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+
+      const start = AppDate.fromDateString("2024-01-03");
+      expect(start.addWorkingDays(20000).toDateString()).toBe("2100-09-01");
+    } finally {
+      setSystemTime();
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
+
   test("supports every isBetween inclusivity mode and default bounds", () => {
     setSystemTime(new Date("2024-01-10T12:00:00Z"));
     setTimezone("Europe/Zurich");
