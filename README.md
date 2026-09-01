@@ -20,7 +20,7 @@ bun run demo.ts
 
 ## Initialize and compare dates
 
-Use `initializeAppDate` as the recommended entry point for language, timezone, and working-day configuration. `workingDays` uses `0` for Sunday through `6` for Saturday and defaults to Monday through Friday. `setTimezone` and `setAppDateLanguage` remain available but are deprecated.
+Use `initializeAppDate` as the entry point for language, timezone, and working-day configuration. `workingDays` uses `0` for Sunday through `6` for Saturday and defaults to Monday through Friday.
 
 ```ts
 import { AppDate, initializeAppDate } from "@ma.vu/appdate";
@@ -37,6 +37,10 @@ const end = AppDate.fromUtcString("2026-01-15T09:30:00Z");
 end.diff(start, "day"); // 1 (truncated)
 end.diff(start, "day", true); // 1.9583...
 ```
+
+## Migrating from 0.x
+
+`setTimezone` and `setAppDateLanguage` were removed in favor of `initializeAppDate`. Before initialization, AppDate now uses the system timezone instead of `Europe/Zurich`, falling back to `UTC` when the runtime cannot report a system zone.
 
 ## How?
 

@@ -219,7 +219,7 @@ export class AppDate {
   /**
    * Creates a AppDate instance from a local time string.
    *
-   * @param time - A string representing a local time in any valid (24h) time format.
+   * @param time - A local time parsed by Day.js against the non-strict "HH:mm" template.
    * @returns A new AppDate instance set to the given time on the todays date.
    *
    * If the time string is invalid, it returns an invalid AppDate instance.
