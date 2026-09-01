@@ -474,6 +474,25 @@ describe("working day and range logic", () => {
     }
   });
 
+  test("matches step-wise working-day traversal", async () => {
+    const workingWeekCases = [[1, 2, 3, 4, 5], [0, 1, 2, 3, 4], [3]];
+
+    try {
+      for (const workingDays of workingWeekCases) {
+        await initializeAppDate({ language: "de", timeZone: "Europe/Zurich", workingDays });
+        const start = AppDate.fromDateString("2024-01-03");
+        let stepWise = start;
+
+        for (let days = 1; days <= 60; days += 1) {
+          stepWise = stepWise.nextWorkingDay();
+          expect(start.addWorkingDays(days).toEpochMillis()).toBe(stepWise.toEpochMillis());
+        }
+      }
+    } finally {
+      await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+    }
+  });
+
   test("adds twenty thousand working days without overflowing the stack", async () => {
     setSystemTime(new Date("2024-01-03T12:00:00Z"));
 
@@ -486,7 +505,7 @@ describe("working day and range logic", () => {
       setSystemTime();
       await initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
     }
-  }, 30000);
+  });
 
   test("supports every isBetween inclusivity mode and default bounds", async () => {
     setSystemTime(new Date("2024-01-10T12:00:00Z"));

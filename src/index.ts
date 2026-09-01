@@ -383,11 +383,11 @@ export class AppDate {
   }
 
   nextWorkingDay(): AppDate {
-    let date = this.add(1, "day");
+    let date = this.dayjsDate.add(1, "day");
 
     for (let step = 0; step < 7; step += 1) {
-      if (date.isWorkingDay()) {
-        return date;
+      if (workingDays.includes(date.day())) {
+        return new AppDate(this.timezone, date);
       }
       date = date.add(1, "day");
     }
@@ -414,8 +414,14 @@ export class AppDate {
     }
 
     let date = this.nextWorkingDay();
+    const remaining = days - 1;
+    const weeks = Math.floor(remaining / workingDays.length);
 
-    for (let remaining = days - 1; remaining > 0; remaining -= 1) {
+    if (weeks > 0) {
+      date = date.add(weeks * 7, "day");
+    }
+
+    for (let remainder = remaining % workingDays.length; remainder > 0; remainder -= 1) {
       date = date.nextWorkingDay();
     }
 
