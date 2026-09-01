@@ -31,6 +31,8 @@
   "scripts": {
     "build": "tsup",
     "test": "bun test",
+    "test:vitest": "vitest run --reporter=verbose",
+    "test:watch": "vitest --reporter=verbose",
     "lint": "eslint src/",
     "format": "prettier --check src/",
     "format:fix": "prettier --write src/",
