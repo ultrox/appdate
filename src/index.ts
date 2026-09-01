@@ -50,14 +50,7 @@ const localeLoaders: Record<AppDateLanguage, () => Promise<void>> = {
   },
 };
 
-/**
- * Given language string, formaters, months, weeks
- * will be localized to provided language
- * de: 10.10.2010
- * en: 10/10/2010
- * @deprecated Use initializeAppDate
- */
-export async function setAppDateLanguage(lang: "de" | "en" | "fr" | "sr" | "sr-ije") {
+async function loadLocale(lang: AppDateLanguage) {
   await (localeLoaders[lang] ?? localeLoaders.en)();
 }
 
@@ -93,17 +86,9 @@ export async function initializeAppDate(config: AppDateConfig): Promise<void> {
 
   const nextWorkingDays = validateWorkingDays(config.workingDays);
 
-  await setAppDateLanguage(config.language);
+  await loadLocale(config.language);
   localTimezone = config.timeZone;
   workingDays = [...nextWorkingDays];
-}
-
-/**
- * Change zone in runtime
- * @deprecated Use initializeAppDate
- */
-export function setTimezone(timezone: string) {
-  localTimezone = timezone;
 }
 
 type DateString = `${string}-${string}-${string}`; // YYYY-MM-DD
@@ -546,7 +531,7 @@ export class AppDate {
    *
    * @example
    * ```typescript
-   * await setAppDateLanguage('sr');
+   * await initializeAppDate({ language: 'sr', timeZone: 'Europe/Zurich' });
    * AppDate.now().subtract(2, 'day').toRelative(); // "pre 2 dana"
    * AppDate.now().add(3, 'hour').toRelative();     // "za 3 sata"
    *

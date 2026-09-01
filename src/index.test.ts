@@ -7,8 +7,7 @@ import {
   getLocalizedDateString,
   initializeAppDate,
   isDateString,
-  setAppDateLanguage,
-  setTimezone,
+  type AppDateLanguage,
 } from "./index";
 
 declare module "./index" {
@@ -17,8 +16,11 @@ declare module "./index" {
   }
 }
 
+const configure = (language: AppDateLanguage = "de", timeZone = "Europe/Zurich") =>
+  initializeAppDate({ language, timeZone });
+
 beforeAll(async () => {
-  await setAppDateLanguage("de");
+  await configure();
 });
 
 /**
@@ -127,7 +129,7 @@ describe("exported helpers and extension hook", () => {
   });
 });
 
-test("invalid input stays silent", () => {
+test("invalid input stays silent", async () => {
   const originalWarn = console.warn;
   const warnings: unknown[][] = [];
   console.warn = (...args: unknown[]) => {
@@ -135,13 +137,12 @@ test("invalid input stays silent", () => {
   };
 
   try {
+    await configure();
     expect(AppDate.fromDateString("not-a-date").isValid()).toBe(false);
-
-    setTimezone("Invalid/Zone");
-    expect(AppDate.fromLocalTime("11:12").isValid()).toBe(false);
+    expect(AppDate.fromLocalTime("not-a-time").isValid()).toBe(false);
     expect(warnings).toEqual([]);
   } finally {
-    setTimezone("Europe/Zurich");
+    await configure();
     console.warn = originalWarn;
   }
 });
@@ -180,11 +181,11 @@ test("formatDateTime", async () => {
 });
 
 describe("timezone preservation", () => {
-  test("add preserves the instance timezone and wall-clock time", () => {
-    setTimezone("Europe/Zurich");
+  test("add preserves the instance timezone and wall-clock time", async () => {
+    await configure();
     try {
       const date = AppDate.fromDateString("2024-01-15");
-      setTimezone("America/New_York");
+      await configure("de", "America/New_York");
 
       const nextDay = date.add(1, "day");
 
@@ -192,7 +193,7 @@ describe("timezone preservation", () => {
       expect(nextDay.toDateString()).toBe("2024-01-16");
       expect(nextDay.toLocalTime()).toBe("00:00");
     } finally {
-      setTimezone("Europe/Zurich");
+      await configure();
     }
   });
 });
@@ -267,16 +268,16 @@ describe("comparison and UTC conversion methods", () => {
 });
 
 describe("isToday", () => {
-  test("compares today in the configured timezone", () => {
+  test("compares today in the configured timezone", async () => {
     setSystemTime(new Date("2024-01-01T02:00:00Z"));
-    setTimezone("America/New_York");
+    await configure("de", "America/New_York");
 
     try {
       expect(AppDate.fromDateString("2023-12-31").isToday()).toBe(true);
       expect(AppDate.fromDateString("2024-01-01").isToday()).toBe(false);
     } finally {
       setSystemTime();
-      setTimezone("Europe/Zurich");
+      await configure();
     }
   });
 });
@@ -284,35 +285,35 @@ describe("isToday", () => {
 describe("isFirstDayOfWeek", () => {
   test("honours the English Sunday week start", async () => {
     setSystemTime(new Date("2024-01-07T12:00:00Z"));
-    await setAppDateLanguage("en");
+    await configure("en");
 
     try {
       expect(AppDate.fromDateString("2024-01-07").isFirstDayOfWeek()).toBe(true);
       expect(AppDate.fromDateString("2024-01-08").isFirstDayOfWeek()).toBe(false);
     } finally {
       setSystemTime();
-      await setAppDateLanguage("de");
+      await configure("de");
     }
   });
 
   test("keeps Monday as the first day for German", async () => {
     setSystemTime(new Date("2024-01-08T12:00:00Z"));
-    await setAppDateLanguage("de");
+    await configure("de");
 
     try {
       expect(AppDate.fromDateString("2024-01-07").isFirstDayOfWeek()).toBe(false);
       expect(AppDate.fromDateString("2024-01-08").isFirstDayOfWeek()).toBe(true);
     } finally {
       setSystemTime();
-      await setAppDateLanguage("de");
+      await configure("de");
     }
   });
 });
 
 describe("working day and range logic", () => {
-  test("identifies working days across a full week", () => {
+  test("identifies working days across a full week", async () => {
     setSystemTime(new Date("2024-01-10T12:00:00Z"));
-    setTimezone("Europe/Zurich");
+    await configure();
 
     try {
       const week = [
@@ -330,13 +331,13 @@ describe("working day and range logic", () => {
       }
     } finally {
       setSystemTime();
-      setTimezone("Europe/Zurich");
+      await configure();
     }
   });
 
-  test("finds the next working day across weekends", () => {
+  test("finds the next working day across weekends", async () => {
     setSystemTime(new Date("2024-01-10T12:00:00Z"));
-    setTimezone("Europe/Zurich");
+    await configure();
 
     try {
       const cases = [
@@ -351,13 +352,13 @@ describe("working day and range logic", () => {
       }
     } finally {
       setSystemTime();
-      setTimezone("Europe/Zurich");
+      await configure();
     }
   });
 
-  test("finds the previous working day across weekends", () => {
+  test("finds the previous working day across weekends", async () => {
     setSystemTime(new Date("2024-01-10T12:00:00Z"));
-    setTimezone("Europe/Zurich");
+    await configure();
 
     try {
       const cases = [
@@ -372,13 +373,13 @@ describe("working day and range logic", () => {
       }
     } finally {
       setSystemTime();
-      setTimezone("Europe/Zurich");
+      await configure();
     }
   });
 
-  test("adds working days and preserves the guard behavior", () => {
+  test("adds working days and preserves the guard behavior", async () => {
     setSystemTime(new Date("2024-01-10T12:00:00Z"));
-    setTimezone("Europe/Zurich");
+    await configure();
 
     try {
       const wednesday = AppDate.fromDateString("2024-01-10");
@@ -392,7 +393,7 @@ describe("working day and range logic", () => {
       }
     } finally {
       setSystemTime();
-      setTimezone("Europe/Zurich");
+      await configure();
     }
   });
 
@@ -410,9 +411,9 @@ describe("working day and range logic", () => {
     }
   });
 
-  test("supports every isBetween inclusivity mode and default bounds", () => {
+  test("supports every isBetween inclusivity mode and default bounds", async () => {
     setSystemTime(new Date("2024-01-10T12:00:00Z"));
-    setTimezone("Europe/Zurich");
+    await configure();
 
     try {
       const from = AppDate.fromDateString("2024-01-10");
@@ -435,7 +436,7 @@ describe("working day and range logic", () => {
       expect(AppDate.maxDate().isBetween()).toBe(false);
     } finally {
       setSystemTime();
-      setTimezone("Europe/Zurich");
+      await configure();
     }
   });
 });
@@ -559,8 +560,8 @@ describe("initializeAppDate", () => {
 });
 
 describe("diff", () => {
-  test("mirrors Day.js units, signs, truncation, and floating results", () => {
-    setTimezone("UTC");
+  test("mirrors Day.js units, signs, truncation, and floating results", async () => {
+    await configure("de", "UTC");
 
     try {
       const earlier = AppDate.fromEpochMillis(Date.parse("2024-01-01T00:00:00Z"));
@@ -574,14 +575,14 @@ describe("diff", () => {
       expect(earlier.diff(later, "day")).toBe(-1);
       expect(later.diff(earlier, "day", true)).toBeCloseTo(47 / 24);
     } finally {
-      setTimezone("Europe/Zurich");
+      await configure();
     }
   });
 });
 
 describe("fromEpochSeconds", () => {
   test("creates date from unix timestamp", async () => {
-    await setAppDateLanguage("de");
+    await configure("de");
     const date = AppDate.fromEpochSeconds(1704067200); // 2024-01-01 00:00:00 UTC
     expect(date.isValid()).toBe(true);
     expect(date.toDateString()).toBe("2024-01-01");
@@ -601,9 +602,9 @@ describe("fromUtcString", () => {
     expect(date.toDateString()).toBe("2024-06-15");
   });
 
-  test("creates date from a full ISO 8601 UTC datetime", () => {
+  test("creates date from a full ISO 8601 UTC datetime", async () => {
     setSystemTime(new Date("2026-01-13T12:00:00Z"));
-    setTimezone("Europe/Zurich");
+    await configure();
 
     try {
       const date = AppDate.fromUtcString("2026-01-13T10:30:00Z");
@@ -612,7 +613,7 @@ describe("fromUtcString", () => {
       expect(date.toLocalTime()).toBe("11:30");
     } finally {
       setSystemTime();
-      setTimezone("Europe/Zurich");
+      await configure();
     }
   });
 
@@ -664,14 +665,14 @@ describe("fromEpochMillis", () => {
 
 describe("serbian locales", () => {
   test("sr (ekavian) formats days correctly", async () => {
-    await setAppDateLanguage("sr");
+    await configure("sr");
     const monday = AppDate.fromDateString("2024-01-08");
     expect(monday.format("dddd")).toBe("Ponedeljak");
     expect(monday.format("dd")).toBe("po");
   });
 
   test("sr-ije (ijekavian) formats days correctly", async () => {
-    await setAppDateLanguage("sr-ije");
+    await configure("sr-ije");
     const monday = AppDate.fromDateString("2024-01-08");
     const wednesday = AppDate.fromDateString("2024-01-10");
     const sunday = AppDate.fromDateString("2024-01-07");
@@ -682,7 +683,7 @@ describe("serbian locales", () => {
   });
 
   test("sr-ije localized date format", async () => {
-    await setAppDateLanguage("sr-ije");
+    await configure("sr-ije");
     const date = AppDate.fromDateString("2024-01-11");
     expect(date.toLocalizedDateString()).toBe("11.01.2024");
     expect(date.toLocalizedDateString({ includeDayOfWeek: true })).toBe("če, 11.01.2024");
@@ -691,62 +692,62 @@ describe("serbian locales", () => {
 
 describe("toRelative", () => {
   test("sr (ekavian) relative time in the past", async () => {
-    await setAppDateLanguage("sr");
+    await configure("sr");
     const twoDaysAgo = AppDate.now().subtract(2, "day");
     expect(twoDaysAgo.toRelative()).toBe("pre 2 dana");
   });
 
   test("sr (ekavian) relative time in the future", async () => {
-    await setAppDateLanguage("sr");
+    await configure("sr");
     const inTwoDays = AppDate.now().add(2, "day");
     expect(inTwoDays.toRelative()).toBe("za 2 dana");
   });
 
   test("sr-ije (ijekavian) relative time in the past", async () => {
-    await setAppDateLanguage("sr-ije");
+    await configure("sr-ije");
     const twoDaysAgo = AppDate.now().subtract(2, "day");
     expect(twoDaysAgo.toRelative()).toBe("prije 2 dana");
   });
 
   test("sr-ije (ijekavian) relative time in the future", async () => {
-    await setAppDateLanguage("sr-ije");
+    await configure("sr-ije");
     const inTwoDays = AppDate.now().add(2, "day");
     expect(inTwoDays.toRelative()).toBe("za 2 dana");
   });
 
   test("english relative time", async () => {
-    await setAppDateLanguage("en");
+    await configure("en");
     const threeDaysAgo = AppDate.now().subtract(3, "day");
     expect(threeDaysAgo.toRelative()).toBe("3 days ago");
   });
 
   test("caps at specified days (past)", async () => {
-    await setAppDateLanguage("en");
+    await configure("en");
     const fifteenDaysAgo = AppDate.now().subtract(15, "day");
     expect(fifteenDaysAgo.toRelative({ cap: 9 })).toBe("9+ days ago");
   });
 
   test("caps at specified days (future)", async () => {
-    await setAppDateLanguage("en");
+    await configure("en");
     const inFifteenDays = AppDate.now().add(15, "day");
     expect(inFifteenDays.toRelative({ cap: 9 })).toBe("in 9+ days");
   });
 
   test("sr caps at specified days", async () => {
-    await setAppDateLanguage("sr");
+    await configure("sr");
     const fifteenDaysAgo = AppDate.now().subtract(15, "day");
     expect(fifteenDaysAgo.toRelative({ cap: 9 })).toBe("pre 9+ dana");
   });
 
   test("sr-ije caps at specified days", async () => {
-    await setAppDateLanguage("sr-ije");
+    await configure("sr-ije");
     const fifteenDaysAgo = AppDate.now().subtract(15, "day");
     expect(fifteenDaysAgo.toRelative({ cap: 9 })).toBe("prije 9+ dana");
   });
 
   test("keeps large English caps in days for past and future dates", async () => {
     setSystemTime(new Date("2024-01-15T12:00:00Z"));
-    await setAppDateLanguage("en");
+    await configure("en");
 
     try {
       for (const cap of [7, 9, 30, 45]) {
@@ -758,13 +759,13 @@ describe("toRelative", () => {
       }
     } finally {
       setSystemTime();
-      await setAppDateLanguage("de");
+      await configure("de");
     }
   });
 
   test("keeps large sr-ije caps in days for past and future dates", async () => {
     setSystemTime(new Date("2024-01-15T12:00:00Z"));
-    await setAppDateLanguage("sr-ije");
+    await configure("sr-ije");
 
     try {
       for (const cap of [7, 9, 30, 45]) {
@@ -776,12 +777,12 @@ describe("toRelative", () => {
       }
     } finally {
       setSystemTime();
-      await setAppDateLanguage("de");
+      await configure("de");
     }
   });
 
   test("falls back to date after threshold", async () => {
-    await setAppDateLanguage("en");
+    await configure("en");
     const twentyDaysAgo = AppDate.now().subtract(20, "day");
     const result = twentyDaysAgo.toRelative({
       cap: 9,
@@ -792,7 +793,7 @@ describe("toRelative", () => {
   });
 
   test("uses custom fallback formatter", async () => {
-    await setAppDateLanguage("sr");
+    await configure("sr");
     const twentyDaysAgo = AppDate.now().subtract(20, "day");
     const result = twentyDaysAgo.toRelative({
       cap: 9,
@@ -803,7 +804,7 @@ describe("toRelative", () => {
   });
 
   test("does not cap when under threshold", async () => {
-    await setAppDateLanguage("en");
+    await configure("en");
     const fiveDaysAgo = AppDate.now().subtract(5, "day");
     expect(fiveDaysAgo.toRelative({ cap: 9 })).toBe("5 days ago");
   });
