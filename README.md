@@ -1,27 +1,29 @@
 # appdate
 
-To install dependencies:
+[![npm version](https://img.shields.io/npm/v/%40ma.vu%2Fappdate?logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/@ma.vu/appdate)
+[![API documentation](https://img.shields.io/badge/docs-TypeDoc-3178c6?logo=typescript&logoColor=white)](https://ultrox.github.io/appdate/)
+
+A timezone-aware date and time abstraction built on Day.js.
+
+## Installation
+
+```bash
+npm install @ma.vu/appdate
+```
+
+## Development
 
 ```bash
 bun install
-```
-
-To run:
-
-```bash
 bun run demo.ts
 ```
 
-To use: 
-- [docs](https://ultrox.github.io/appdate/classes/AppDate.html)
-
-```
-npm install @ma.vu/appdate
-```
 ## How?
+
 The pattern follows the Builder/Factory pattern where:
 
 Static methods are the "builders" that create new instances
+
 ```ts
 // These create NEW instances of AppDate
 static now(): AppDate
@@ -40,7 +42,6 @@ isValid(): boolean
 toLocalTime(): string
 ```
 
-
 ## Why Constructor is private?
 
 The constructor is marked as private for several important reasons:
@@ -51,16 +52,17 @@ It maintains a single way to create dates, making the code more predictable
 It encapsulates the internal dayjs implementation
 
 If we allowed direct construction:
+
 ```ts
 // If constructor was public:
-const date1 = new AppDate('2024-02-11');     // Is this YYYY-MM-DD?
-const date2 = new AppDate('02/11/2024');     // What about this format?
-const date3 = new AppDate('11.02.2024');     // Or this European format?
+const date1 = new AppDate("2024-02-11"); // Is this YYYY-MM-DD?
+const date2 = new AppDate("02/11/2024"); // What about this format?
+const date3 = new AppDate("11.02.2024"); // Or this European format?
 ```
 
 Instead, with factory methods:
 
 ```ts
 // Clear intention, validated format
-const date = AppDate.fromDateString('2024-02-11');  // Must be YYYY-MM-DD
+const date = AppDate.fromDateString("2024-02-11"); // Must be YYYY-MM-DD
 ```
