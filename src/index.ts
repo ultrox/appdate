@@ -10,6 +10,8 @@ import relativeTimePlugin from "dayjs/plugin/relativeTime.js";
 import timezonePlugin from "dayjs/plugin/timezone.js";
 import utcPlugin from "dayjs/plugin/utc.js";
 
+import { resolveSystemTimezone } from "./system-timezone";
+
 dayjs.extend(utcPlugin);
 dayjs.extend(timezonePlugin);
 dayjs.extend(customParseFormatPlugin);
@@ -50,20 +52,14 @@ const localeLoaders: Record<AppDateLanguage, () => Promise<void>> = {
   },
 };
 
-/**
- * Given language string, formaters, months, weeks
- * will be localized to provided language
- * de: 10.10.2010
- * en: 10/10/2010
- * @deprecated Use initializeAppDate
- */
-export async function setAppDateLanguage(lang: "de" | "en" | "fr" | "sr" | "sr-ije") {
+async function loadLocale(lang: AppDateLanguage) {
   await (localeLoaders[lang] ?? localeLoaders.en)();
 }
 
 const DEFAULT_WORKING_DAYS: readonly number[] = [1, 2, 3, 4, 5];
+const DEFAULT_TIMEZONE = resolveSystemTimezone();
 
-let localTimezone = "Europe/Zurich";
+let localTimezone = DEFAULT_TIMEZONE;
 let workingDays: readonly number[] = DEFAULT_WORKING_DAYS;
 
 function validateWorkingDays(value: unknown): readonly number[] {
@@ -93,17 +89,9 @@ export async function initializeAppDate(config: AppDateConfig): Promise<void> {
 
   const nextWorkingDays = validateWorkingDays(config.workingDays);
 
-  await setAppDateLanguage(config.language);
+  await loadLocale(config.language);
   localTimezone = config.timeZone;
   workingDays = [...nextWorkingDays];
-}
-
-/**
- * Change zone in runtime
- * @deprecated Use initializeAppDate
- */
-export function setTimezone(timezone: string) {
-  localTimezone = timezone;
 }
 
 type DateString = `${string}-${string}-${string}`; // YYYY-MM-DD
@@ -231,7 +219,7 @@ export class AppDate {
   /**
    * Creates a AppDate instance from a local time string.
    *
-   * @param time - A string representing a local time in any valid (24h) time format.
+   * @param time - A local time parsed by Day.js against the non-strict "HH:mm" template.
    * @returns A new AppDate instance set to the given time on the todays date.
    *
    * If the time string is invalid, it returns an invalid AppDate instance.
@@ -546,7 +534,7 @@ export class AppDate {
    *
    * @example
    * ```typescript
-   * await setAppDateLanguage('sr');
+   * await initializeAppDate({ language: 'sr', timeZone: 'Europe/Zurich' });
    * AppDate.now().subtract(2, 'day').toRelative(); // "pre 2 dana"
    * AppDate.now().add(3, 'hour').toRelative();     // "za 3 sata"
    *
