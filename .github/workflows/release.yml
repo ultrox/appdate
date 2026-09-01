@@ -2,11 +2,13 @@ name: Publish
 
 on:
   push:
+    branches:
+      - master
     tags:
       - "v*"
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -19,16 +21,42 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - run: bun install --frozen-lockfile
-      - run: bun run validate
-      - name: Verify tag matches package version
+      - name: Check package version
+        id: version
         shell: bash
         run: |
-          tag_version="${GITHUB_REF_NAME#v}"
           package_version="$(node -p "require('./package.json').version")"
+          published_version="$(npm view @ma.vu/appdate version 2>/dev/null || true)"
 
-          if [[ "$tag_version" != "$package_version" ]]; then
-            echo "::error::Tag version $tag_version does not match package version $package_version"
-            exit 1
+          echo "package_version=$package_version" >> "$GITHUB_OUTPUT"
+
+          if [[ "$package_version" == "$published_version" ]]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "version unchanged, skipping publish"
+            exit 0
           fi
-      - run: npm publish --provenance --access public
+
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            tag_version="${GITHUB_REF_NAME#v}"
+
+            if [[ "$tag_version" != "$package_version" ]]; then
+              echo "::error::Tag version $tag_version does not match package version $package_version"
+              exit 1
+            fi
+          fi
+
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "publishing $package_version (registry has ${published_version:-no version})"
+      - if: steps.version.outputs.publish == 'true'
+        run: bun install --frozen-lockfile
+      - if: steps.version.outputs.publish == 'true'
+        run: bun run validate
+      - if: steps.version.outputs.publish == 'true'
+        run: npm publish --provenance --access public
+      - name: Create release tag
+        if: steps.version.outputs.publish == 'true' && github.ref_type == 'branch'
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.package_version }}
+        run: |
+          git tag "v${PACKAGE_VERSION}"
+          git push origin "v${PACKAGE_VERSION}"
