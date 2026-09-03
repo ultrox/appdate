@@ -81,6 +81,74 @@ test("keeps the unconfigured UTC default usable without Intl", async () => {
   }
 });
 
+test("keeps now valid when Hermes iOS mislabels a named offset as minutes", async () => {
+  const DateTimeFormat = Intl.DateTimeFormat;
+  let simulateHermesIos = true;
+
+  function HermesIosDateTimeFormat(
+    locales?: string | string[],
+    options?: Intl.DateTimeFormatOptions
+  ): Intl.DateTimeFormat {
+    const formatter = new DateTimeFormat(locales, options);
+    const formatToParts = formatter.formatToParts.bind(formatter);
+
+    Object.defineProperty(formatter, "formatToParts", {
+      value: (date?: Date | number) =>
+        formatToParts(date).flatMap((part) => {
+          if (!simulateHermesIos || part.type !== "timeZoneName") {
+            return [part];
+          }
+
+          const offset = part.value.match(/^(.*?)([+-])(\d+)$/);
+          // Hermes iOS splits GMT+2 and labels the trailing offset hour as another minute part.
+          return offset
+            ? [
+                { type: "timeZoneName", value: offset[1] },
+                { type: "literal", value: offset[2] },
+                { type: "minute", value: offset[3] },
+              ]
+            : [part];
+        }),
+    });
+    return formatter;
+  }
+
+  Intl.DateTimeFormat = HermesIosDateTimeFormat as unknown as typeof Intl.DateTimeFormat;
+  setSystemTime(new Date(SUMMER_INSTANT));
+
+  try {
+    const hermesModuleSpecifier = "./index?hermes-ios-named-offset-parts";
+    const hermesModule = await import(hermesModuleSpecifier);
+    await hermesModule.initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+
+    const namedOffsetParts = new Intl.DateTimeFormat("en-US", {
+      day: "2-digit",
+      hour: "2-digit",
+      hour12: false,
+      minute: "2-digit",
+      month: "2-digit",
+      second: "2-digit",
+      timeZone: "Europe/Zurich",
+      timeZoneName: "short",
+      year: "numeric",
+    }).formatToParts(new Date(SUMMER_INSTANT));
+    expect(
+      namedOffsetParts.filter((part) => part.type === "minute").map((part) => part.value)
+    ).toEqual(["00", "2"]);
+
+    const now = hermesModule.AppDate.now();
+    expect(now.isValid()).toBe(true);
+    expect(Number.isFinite(now.toEpochMillis())).toBe(true);
+    expect(now.toEpochMillis()).toBe(SUMMER_EPOCH_MILLIS);
+    expect(now.format("YYYY-MM-DD HH:mm Z")).toBe("2026-07-15 17:00 +02:00");
+    expect(now.toUtcString()).toBe("2026-07-15T15:00:00+00:00");
+  } finally {
+    simulateHermesIos = false;
+    Intl.DateTimeFormat = DateTimeFormat;
+    setSystemTime();
+  }
+});
+
 test("defaults to the resolved system timezone before initialization", () => {
   expect(AppDate.fromDateString("2024-10-10").timezone).toBe(dayjs.tz.guess() || "UTC");
 });

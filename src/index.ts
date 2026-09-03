@@ -144,13 +144,7 @@ function getZoneFormatter(timeZone: string): Intl.DateTimeFormat {
   return formatter;
 }
 
-type ZonedInstant = {
-  offset: number;
-  wallClock: string;
-  millisecond: number;
-};
-
-function zonedInstant(instantMs: number, timeZone: string): ZonedInstant | undefined {
+function zoneOffsetMinutes(instantMs: number, timeZone: string): number | undefined {
   try {
     if (typeof globalThis.Intl === "undefined" || typeof Intl.DateTimeFormat !== "function") {
       return undefined;
@@ -196,9 +190,7 @@ function zonedInstant(instantMs: number, timeZone: string): ZonedInstant | undef
       return undefined;
     }
 
-    const segment = (value: number, length = 2) => String(value).padStart(length, "0");
-    const wallClock = `${segment(year, 4)}-${segment(month)}-${segment(day)} ${segment(hour)}:${segment(minute)}:${segment(second)}`;
-    return { offset, wallClock, millisecond };
+    return offset;
   } catch {
     return undefined;
   }
@@ -216,24 +208,24 @@ function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
 
   if (typeof date === "string") {
     const parsedDate = dayjs.tz(date, timezone);
-    return parsedDate.isValid() && zonedInstant(parsedDate.valueOf(), timezone) !== undefined
+    return parsedDate.isValid() && zoneOffsetMinutes(parsedDate.valueOf(), timezone) !== undefined
       ? parsedDate
       : INVALID_DAYJS;
   }
 
   const instantMs = date.valueOf();
-  const target = zonedInstant(instantMs, timezone);
+  const offset = zoneOffsetMinutes(instantMs, timezone);
 
-  if (target === undefined) {
+  if (offset === undefined) {
     return INVALID_DAYJS;
   }
 
-  // Day.js's string path uses formatToParts instead of parsing Date#toLocaleString output.
-  const parsedDate = dayjs.tz(target.wallClock, timezone).millisecond(target.millisecond);
+  // Avoid Day.js's IANA parsing path: Hermes iOS can mislabel named-offset parts.
+  const parsedDate = dayjs.utc(instantMs).utcOffset(offset);
 
   if (
     !parsedDate.isValid() ||
-    parsedDate.utcOffset() !== target.offset ||
+    parsedDate.utcOffset() !== offset ||
     parsedDate.valueOf() !== instantMs
   ) {
     return INVALID_DAYJS;
