@@ -81,7 +81,7 @@ test("keeps the unconfigured UTC default usable without Intl", async () => {
   }
 });
 
-test("keeps now valid when Hermes iOS mislabels a named offset as minutes", async () => {
+test("keeps instant and wall-clock construction valid with malformed Hermes iOS parts", async () => {
   const DateTimeFormat = Intl.DateTimeFormat;
   let simulateHermesIos = true;
 
@@ -142,6 +142,15 @@ test("keeps now valid when Hermes iOS mislabels a named offset as minutes", asyn
     expect(now.toEpochMillis()).toBe(SUMMER_EPOCH_MILLIS);
     expect(now.format("YYYY-MM-DD HH:mm Z")).toBe("2026-07-15 17:00 +02:00");
     expect(now.toUtcString()).toBe("2026-07-15T15:00:00+00:00");
+
+    const localDate = hermesModule.AppDate.fromDateString("2026-07-15");
+    expect(localDate.isValid()).toBe(true);
+    expect(localDate.format("YYYY-MM-DD HH:mm:ss")).toBe("2026-07-15 00:00:00");
+    expect(localDate.toUtcString()).toBe("2026-07-14T22:00:00+00:00");
+
+    const localTime = hermesModule.AppDate.fromLocalTime("09:30");
+    expect(localTime.isValid()).toBe(true);
+    expect(localTime.format("YYYY-MM-DD HH:mm:ss")).toBe("2026-07-15 09:30:00");
   } finally {
     simulateHermesIos = false;
     Intl.DateTimeFormat = DateTimeFormat;

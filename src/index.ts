@@ -101,6 +101,7 @@ type DateString = `${string}-${string}-${string}`; // YYYY-MM-DD
 
 const LOCAL_TIME_FORMAT = "HH:mm";
 const UTC_TIME_FORMAT = "HH:mm:ssZ";
+const MILLISECONDS_PER_MINUTE = 60_000;
 const FOREIGN_FORMAT_SEGMENT = /\[[^\]]*]|E+|y+/g;
 const INVALID_DAYJS = dayjs("");
 const zoneFormatters = new Map<
@@ -184,7 +185,7 @@ function zoneOffsetMinutes(instantMs: number, timeZone: string): number | undefi
     const asUtc = Date.UTC(year, month - 1, day, hour, minute, second);
     const millisecond = ((instantMs % 1000) + 1000) % 1000;
     const instantWithoutMilliseconds = instantMs - millisecond;
-    const offset = Math.round((asUtc - instantWithoutMilliseconds) / 60000);
+    const offset = Math.round((asUtc - instantWithoutMilliseconds) / MILLISECONDS_PER_MINUTE);
 
     if (!Number.isFinite(offset)) {
       return undefined;
@@ -194,6 +195,44 @@ function zoneOffsetMinutes(instantMs: number, timeZone: string): number | undefi
   } catch {
     return undefined;
   }
+}
+
+function wallClockInTimezone(wallClock: Dayjs, timezone: string): Dayjs {
+  if (!wallClock.isValid()) {
+    return INVALID_DAYJS;
+  }
+
+  if (timezone === "UTC") {
+    return wallClock.utc();
+  }
+
+  const wallClockMs = wallClock.valueOf();
+  let offset = zoneOffsetMinutes(wallClockMs, timezone);
+
+  // The offset at the UTC-shaped wall clock can differ from the offset at its resolved instant.
+  for (let attempt = 0; attempt < 3 && offset !== undefined; attempt += 1) {
+    const instantMs = wallClockMs - offset * MILLISECONDS_PER_MINUTE;
+    const resolvedOffset = zoneOffsetMinutes(instantMs, timezone);
+
+    if (resolvedOffset === offset) {
+      const parsedDate = dayjs.utc(instantMs).utcOffset(offset).locale(wallClock.locale());
+      const reconstructedWallClockMs = Date.UTC(
+        parsedDate.year(),
+        parsedDate.month(),
+        parsedDate.date(),
+        parsedDate.hour(),
+        parsedDate.minute(),
+        parsedDate.second(),
+        parsedDate.millisecond()
+      );
+
+      return reconstructedWallClockMs === wallClockMs ? parsedDate : INVALID_DAYJS;
+    }
+
+    offset = resolvedOffset;
+  }
+
+  return INVALID_DAYJS;
 }
 
 function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
@@ -207,10 +246,7 @@ function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
   }
 
   if (typeof date === "string") {
-    const parsedDate = dayjs.tz(date, timezone);
-    return parsedDate.isValid() && zoneOffsetMinutes(parsedDate.valueOf(), timezone) !== undefined
-      ? parsedDate
-      : INVALID_DAYJS;
+    return wallClockInTimezone(dayjs.utc(date, "YYYY-MM-DD", true), timezone);
   }
 
   const instantMs = date.valueOf();
@@ -367,8 +403,25 @@ export class AppDate {
     const timezone = currentTimezone();
 
     try {
-      const date = dayjs.tz(time, LOCAL_TIME_FORMAT, timezone);
-      return new AppDate(timezone, date);
+      const parsedTime = dayjs.utc(time, LOCAL_TIME_FORMAT);
+      const today = inTimezone(dayjs(), timezone);
+
+      if (!parsedTime.isValid() || !today.isValid()) {
+        return AppDate.invalid();
+      }
+
+      const wallClock = dayjs.utc(
+        Date.UTC(
+          today.year(),
+          today.month(),
+          today.date(),
+          parsedTime.hour(),
+          parsedTime.minute(),
+          parsedTime.second(),
+          parsedTime.millisecond()
+        )
+      );
+      return new AppDate(timezone, wallClockInTimezone(wallClock, timezone));
     } catch {
       return AppDate.invalid();
     }
