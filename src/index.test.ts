@@ -365,6 +365,10 @@ test("fromLocalTime", async () => {
   try {
     await configure();
     expect(AppDate.fromLocalTime("11:12").isValid()).toBe(true);
+
+    for (const time of ["25:00", "23:60", "-1:00", "14:30junk", "14:30:00"]) {
+      expect(AppDate.fromLocalTime(time).isValid()).toBe(false);
+    }
   } finally {
     setSystemTime();
     await configure();
@@ -1017,6 +1021,23 @@ describe("fromUtcString", () => {
     }
   });
 
+  test("preserves valid ISO 8601 datetime offsets", async () => {
+    await configure();
+
+    const date = AppDate.fromUtcString("2026-01-13T10:30:00+05:45");
+
+    expect(date.isValid()).toBe(true);
+    expect(date.toUtcString()).toBe("2026-01-13T04:45:00+00:00");
+  });
+
+  test("rejects impossible dates instead of normalizing them", async () => {
+    await configure();
+
+    for (const date of ["2026-02-29", "2026-13-01", "2026-01-32", "2026-02-29T10:30:00Z"]) {
+      expect(AppDate.fromUtcString(date).isValid()).toBe(false);
+    }
+  });
+
   test("creates current date when no argument passed", async () => {
     setSystemTime(new Date("2024-01-15T12:00:00Z"));
 
@@ -1055,6 +1076,29 @@ describe("fromUtcTime", () => {
     } finally {
       setSystemTime();
       await configure();
+    }
+  });
+
+  test("preserves valid numeric offsets", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+
+    try {
+      await configure();
+      const date = AppDate.fromUtcTime("14:30:00+02:00");
+
+      expect(date.isValid()).toBe(true);
+      expect(date.toUtcTime()).toBe("12:30:00+00:00");
+    } finally {
+      setSystemTime();
+      await configure();
+    }
+  });
+
+  test("rejects impossible times and offsets instead of normalizing them", async () => {
+    await configure();
+
+    for (const time of ["25:00:00+00:00", "23:60:00+00:00", "14:30:00+99:99"]) {
+      expect(AppDate.fromUtcTime(time).isValid()).toBe(false);
     }
   });
 });

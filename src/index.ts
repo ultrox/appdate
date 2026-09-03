@@ -99,9 +99,13 @@ export async function initializeAppDate(config: AppDateConfig): Promise<void> {
 
 type DateString = `${string}-${string}-${string}`; // YYYY-MM-DD
 
+const DATE_FORMAT = "YYYY-MM-DD";
 const LOCAL_TIME_FORMAT = "HH:mm";
 const UTC_TIME_FORMAT = "HH:mm:ssZ";
 const MILLISECONDS_PER_MINUTE = 60_000;
+const ISO_DATETIME_PATTERN =
+  /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-](\d{2}):(\d{2}))?$/;
+const UTC_TIME_PATTERN = /^(\d{2}):(\d{2}):(\d{2})(?:Z|[+-](\d{2}):(\d{2}))$/;
 const FOREIGN_FORMAT_SEGMENT = /\[[^\]]*]|E+|y+/g;
 const INVALID_DAYJS = dayjs("");
 const zoneFormatters = new Map<
@@ -121,6 +125,66 @@ function assertSupportedFormatTemplate(template: string): void {
       );
     }
   }
+}
+
+function isValidClockTime(hour: string, minute: string, second = "0"): boolean {
+  return Number(hour) <= 23 && Number(minute) <= 59 && Number(second) <= 59;
+}
+
+function isValidUtcOffset(hour?: string, minute?: string): boolean {
+  if (hour === undefined || minute === undefined) {
+    return hour === undefined && minute === undefined;
+  }
+
+  const offsetHour = Number(hour);
+  const offsetMinute = Number(minute);
+  return offsetHour <= 23 && offsetMinute <= 59;
+}
+
+function parseUtcString(date?: string): Dayjs {
+  if (date === undefined) {
+    return dayjs.utc();
+  }
+
+  if (typeof date !== "string") {
+    return INVALID_DAYJS;
+  }
+
+  const parsedDate = dayjs.utc(date, DATE_FORMAT, true);
+  if (parsedDate.isValid()) {
+    return parsedDate;
+  }
+
+  const match = date.match(ISO_DATETIME_PATTERN);
+  if (
+    !match ||
+    !dayjs.utc(match[1], DATE_FORMAT, true).isValid() ||
+    !isValidClockTime(match[2], match[3], match[4]) ||
+    !isValidUtcOffset(match[5], match[6])
+  ) {
+    return INVALID_DAYJS;
+  }
+
+  const parsedDateTime = dayjs.utc(date);
+  return parsedDateTime.isValid() ? parsedDateTime : INVALID_DAYJS;
+}
+
+function parseUtcTime(time: string): Dayjs {
+  if (typeof time !== "string") {
+    return INVALID_DAYJS;
+  }
+
+  const match = time.match(UTC_TIME_PATTERN);
+  if (
+    !match ||
+    !isValidClockTime(match[1], match[2], match[3]) ||
+    !isValidUtcOffset(match[4], match[5])
+  ) {
+    return INVALID_DAYJS;
+  }
+
+  const parsedTime = dayjs.utc(time, UTC_TIME_FORMAT);
+  return parsedTime.isValid() ? parsedTime : INVALID_DAYJS;
 }
 
 function getZoneFormatter(timeZone: string): Intl.DateTimeFormat {
@@ -246,7 +310,7 @@ function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
   }
 
   if (typeof date === "string") {
-    return wallClockInTimezone(dayjs.utc(date, "YYYY-MM-DD", true), timezone);
+    return wallClockInTimezone(dayjs.utc(date, DATE_FORMAT, true), timezone);
   }
 
   const instantMs = date.valueOf();
@@ -390,7 +454,7 @@ export class AppDate {
   /**
    * Creates a AppDate instance from a local time string.
    *
-   * @param time - A local time parsed by Day.js against the non-strict "HH:mm" template.
+   * @param time - A local time in the strict "HH:mm" format.
    * @returns A new AppDate instance set to the given time on the todays date.
    *
    * If the time string is invalid, it returns an invalid AppDate instance.
@@ -403,7 +467,7 @@ export class AppDate {
     const timezone = currentTimezone();
 
     try {
-      const parsedTime = dayjs.utc(time, LOCAL_TIME_FORMAT);
+      const parsedTime = dayjs.utc(time, LOCAL_TIME_FORMAT, true);
       const today = inTimezone(dayjs(), timezone);
 
       if (!parsedTime.isValid() || !today.isValid()) {
@@ -439,7 +503,7 @@ export class AppDate {
    * ```
    */
   static fromUtcString(date?: string) {
-    const utcdate = dayjs.utc(date);
+    const utcdate = parseUtcString(date);
     return new AppDate(currentTimezone(), utcdate);
   }
 
@@ -455,7 +519,7 @@ export class AppDate {
    * ```
    */
   static fromUtcTime(time: string) {
-    const date = dayjs.utc(time, UTC_TIME_FORMAT);
+    const date = parseUtcTime(time);
     return new AppDate(currentTimezone(), date);
   }
   /**
@@ -809,7 +873,7 @@ export function isDateString(date: string | undefined | null | Dayjs): date is D
     return false;
   }
 
-  const parsedDate = dayjs(date, "YYYY-MM-DD", true);
+  const parsedDate = dayjs(date, DATE_FORMAT, true);
   return parsedDate.isValid();
 }
 
