@@ -99,8 +99,14 @@ export async function initializeAppDate(config: AppDateConfig): Promise<void> {
 
 type DateString = `${string}-${string}-${string}`; // YYYY-MM-DD
 
+const DATE_FORMAT = "YYYY-MM-DD";
 const LOCAL_TIME_FORMAT = "HH:mm";
 const UTC_TIME_FORMAT = "HH:mm:ssZ";
+const DEFAULT_FORMAT_TEMPLATE = "YYYY-MM-DDTHH:mm:ssZ";
+const MILLISECONDS_PER_MINUTE = 60_000;
+const ISO_DATETIME_PATTERN =
+  /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-](\d{2}):(\d{2}))?$/;
+const UTC_TIME_PATTERN = /^(\d{2}):(\d{2}):(\d{2})(?:Z|[+-](\d{2}):(\d{2}))$/;
 const FOREIGN_FORMAT_SEGMENT = /\[[^\]]*]|E+|y+/g;
 const INVALID_DAYJS = dayjs("");
 const zoneFormatters = new Map<
@@ -120,6 +126,66 @@ function assertSupportedFormatTemplate(template: string): void {
       );
     }
   }
+}
+
+function isValidClockTime(hour: string, minute: string, second = "0"): boolean {
+  return Number(hour) <= 23 && Number(minute) <= 59 && Number(second) <= 59;
+}
+
+function isValidUtcOffset(hour?: string, minute?: string): boolean {
+  if (hour === undefined || minute === undefined) {
+    return hour === undefined && minute === undefined;
+  }
+
+  const offsetHour = Number(hour);
+  const offsetMinute = Number(minute);
+  return offsetHour <= 23 && offsetMinute <= 59;
+}
+
+function parseUtcString(date?: string): Dayjs {
+  if (date === undefined) {
+    return dayjs.utc();
+  }
+
+  if (typeof date !== "string") {
+    return INVALID_DAYJS;
+  }
+
+  const parsedDate = dayjs.utc(date, DATE_FORMAT, true);
+  if (parsedDate.isValid()) {
+    return parsedDate;
+  }
+
+  const match = date.match(ISO_DATETIME_PATTERN);
+  if (
+    !match ||
+    !dayjs.utc(match[1], DATE_FORMAT, true).isValid() ||
+    !isValidClockTime(match[2], match[3], match[4]) ||
+    !isValidUtcOffset(match[5], match[6])
+  ) {
+    return INVALID_DAYJS;
+  }
+
+  const parsedDateTime = dayjs.utc(date);
+  return parsedDateTime.isValid() ? parsedDateTime : INVALID_DAYJS;
+}
+
+function parseUtcTime(time: string): Dayjs {
+  if (typeof time !== "string") {
+    return INVALID_DAYJS;
+  }
+
+  const match = time.match(UTC_TIME_PATTERN);
+  if (
+    !match ||
+    !isValidClockTime(match[1], match[2], match[3]) ||
+    !isValidUtcOffset(match[4], match[5])
+  ) {
+    return INVALID_DAYJS;
+  }
+
+  const parsedTime = dayjs.utc(time, UTC_TIME_FORMAT);
+  return parsedTime.isValid() ? parsedTime : INVALID_DAYJS;
 }
 
 function getZoneFormatter(timeZone: string): Intl.DateTimeFormat {
@@ -144,13 +210,7 @@ function getZoneFormatter(timeZone: string): Intl.DateTimeFormat {
   return formatter;
 }
 
-type ZonedInstant = {
-  offset: number;
-  wallClock: string;
-  millisecond: number;
-};
-
-function zonedInstant(instantMs: number, timeZone: string): ZonedInstant | undefined {
+function zoneOffsetMinutes(instantMs: number, timeZone: string): number | undefined {
   try {
     if (typeof globalThis.Intl === "undefined" || typeof Intl.DateTimeFormat !== "function") {
       return undefined;
@@ -190,18 +250,54 @@ function zonedInstant(instantMs: number, timeZone: string): ZonedInstant | undef
     const asUtc = Date.UTC(year, month - 1, day, hour, minute, second);
     const millisecond = ((instantMs % 1000) + 1000) % 1000;
     const instantWithoutMilliseconds = instantMs - millisecond;
-    const offset = Math.round((asUtc - instantWithoutMilliseconds) / 60000);
+    const offset = Math.round((asUtc - instantWithoutMilliseconds) / MILLISECONDS_PER_MINUTE);
 
     if (!Number.isFinite(offset)) {
       return undefined;
     }
 
-    const segment = (value: number, length = 2) => String(value).padStart(length, "0");
-    const wallClock = `${segment(year, 4)}-${segment(month)}-${segment(day)} ${segment(hour)}:${segment(minute)}:${segment(second)}`;
-    return { offset, wallClock, millisecond };
+    return offset;
   } catch {
     return undefined;
   }
+}
+
+function wallClockInTimezone(wallClock: Dayjs, timezone: string): Dayjs {
+  if (!wallClock.isValid()) {
+    return INVALID_DAYJS;
+  }
+
+  if (timezone === "UTC") {
+    return wallClock.utc();
+  }
+
+  const wallClockMs = wallClock.valueOf();
+  let offset = zoneOffsetMinutes(wallClockMs, timezone);
+
+  // The offset at the UTC-shaped wall clock can differ from the offset at its resolved instant.
+  for (let attempt = 0; attempt < 3 && offset !== undefined; attempt += 1) {
+    const instantMs = wallClockMs - offset * MILLISECONDS_PER_MINUTE;
+    const resolvedOffset = zoneOffsetMinutes(instantMs, timezone);
+
+    if (resolvedOffset === offset) {
+      const parsedDate = dayjs.utc(instantMs).utcOffset(offset).locale(wallClock.locale());
+      const reconstructedWallClockMs = Date.UTC(
+        parsedDate.year(),
+        parsedDate.month(),
+        parsedDate.date(),
+        parsedDate.hour(),
+        parsedDate.minute(),
+        parsedDate.second(),
+        parsedDate.millisecond()
+      );
+
+      return reconstructedWallClockMs === wallClockMs ? parsedDate : INVALID_DAYJS;
+    }
+
+    offset = resolvedOffset;
+  }
+
+  return INVALID_DAYJS;
 }
 
 function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
@@ -215,25 +311,22 @@ function inTimezone(date: Dayjs | string, timezone: string): Dayjs {
   }
 
   if (typeof date === "string") {
-    const parsedDate = dayjs.tz(date, timezone);
-    return parsedDate.isValid() && zonedInstant(parsedDate.valueOf(), timezone) !== undefined
-      ? parsedDate
-      : INVALID_DAYJS;
+    return wallClockInTimezone(dayjs.utc(date, DATE_FORMAT, true), timezone);
   }
 
   const instantMs = date.valueOf();
-  const target = zonedInstant(instantMs, timezone);
+  const offset = zoneOffsetMinutes(instantMs, timezone);
 
-  if (target === undefined) {
+  if (offset === undefined) {
     return INVALID_DAYJS;
   }
 
-  // Day.js's string path uses formatToParts instead of parsing Date#toLocaleString output.
-  const parsedDate = dayjs.tz(target.wallClock, timezone).millisecond(target.millisecond);
+  // Avoid Day.js's IANA parsing path: Hermes iOS can mislabel named-offset parts.
+  const parsedDate = dayjs.utc(instantMs).utcOffset(offset);
 
   if (
     !parsedDate.isValid() ||
-    parsedDate.utcOffset() !== target.offset ||
+    parsedDate.utcOffset() !== offset ||
     parsedDate.valueOf() !== instantMs
   ) {
     return INVALID_DAYJS;
@@ -362,7 +455,7 @@ export class AppDate {
   /**
    * Creates a AppDate instance from a local time string.
    *
-   * @param time - A local time parsed by Day.js against the non-strict "HH:mm" template.
+   * @param time - A local time in the strict "HH:mm" format.
    * @returns A new AppDate instance set to the given time on the todays date.
    *
    * If the time string is invalid, it returns an invalid AppDate instance.
@@ -375,8 +468,25 @@ export class AppDate {
     const timezone = currentTimezone();
 
     try {
-      const date = dayjs.tz(time, LOCAL_TIME_FORMAT, timezone);
-      return new AppDate(timezone, date);
+      const parsedTime = dayjs.utc(time, LOCAL_TIME_FORMAT, true);
+      const today = inTimezone(dayjs(), timezone);
+
+      if (!parsedTime.isValid() || !today.isValid()) {
+        return AppDate.invalid();
+      }
+
+      const wallClock = dayjs.utc(
+        Date.UTC(
+          today.year(),
+          today.month(),
+          today.date(),
+          parsedTime.hour(),
+          parsedTime.minute(),
+          parsedTime.second(),
+          parsedTime.millisecond()
+        )
+      );
+      return new AppDate(timezone, wallClockInTimezone(wallClock, timezone));
     } catch {
       return AppDate.invalid();
     }
@@ -394,7 +504,7 @@ export class AppDate {
    * ```
    */
   static fromUtcString(date?: string) {
-    const utcdate = dayjs.utc(date);
+    const utcdate = parseUtcString(date);
     return new AppDate(currentTimezone(), utcdate);
   }
 
@@ -410,7 +520,7 @@ export class AppDate {
    * ```
    */
   static fromUtcTime(time: string) {
-    const date = dayjs.utc(time, UTC_TIME_FORMAT);
+    const date = parseUtcTime(time);
     return new AppDate(currentTimezone(), date);
   }
   /**
@@ -646,9 +756,10 @@ export class AppDate {
    * @see {@link https://day.js.org/docs/en/display/format|Day.js format documentation}
    *
    * The template uses Day.js format tokens, such as dddd for the day of the week.
+   * Without a template, returns an ISO-compatible local timestamp precise to seconds.
    * @throws {Error} If the template contains an unescaped foreign E or y token.
    */
-  format(template: FormatTemplate = "YYYY-MM-DDTHH:mm:ssZ[Z]") {
+  format(template: FormatTemplate = DEFAULT_FORMAT_TEMPLATE) {
     assertSupportedFormatTemplate(template);
     return this.dayjsDate.format(template);
   }
@@ -764,7 +875,7 @@ export function isDateString(date: string | undefined | null | Dayjs): date is D
     return false;
   }
 
-  const parsedDate = dayjs(date, "YYYY-MM-DD", true);
+  const parsedDate = dayjs(date, DATE_FORMAT, true);
   return parsedDate.isValid();
 }
 

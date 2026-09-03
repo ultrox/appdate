@@ -42,6 +42,8 @@ end.diff(start, "day", true); // 1.9583...
 
 AppDate uses [Day.js format tokens](https://day.js.org/docs/en/display/format); foreign tokens such as `EEEE` and `yyyy` throw, and literal text must be wrapped in square brackets, such as `[EEEE]`.
 
+Calling `format()` without a template returns an ISO-compatible timestamp with second precision, such as `2026-07-15T17:00:00+02:00`.
+
 ## Migrating from 0.x
 
 `setTimezone` and `setAppDateLanguage` were removed in favor of `initializeAppDate`. Before initialization, AppDate now uses the system timezone instead of `Europe/Zurich`, falling back to `UTC` when the runtime cannot report a system zone.

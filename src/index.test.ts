@@ -81,6 +81,83 @@ test("keeps the unconfigured UTC default usable without Intl", async () => {
   }
 });
 
+test("keeps instant and wall-clock construction valid with malformed Hermes iOS parts", async () => {
+  const DateTimeFormat = Intl.DateTimeFormat;
+  let simulateHermesIos = true;
+
+  function HermesIosDateTimeFormat(
+    locales?: string | string[],
+    options?: Intl.DateTimeFormatOptions
+  ): Intl.DateTimeFormat {
+    const formatter = new DateTimeFormat(locales, options);
+    const formatToParts = formatter.formatToParts.bind(formatter);
+
+    Object.defineProperty(formatter, "formatToParts", {
+      value: (date?: Date | number) =>
+        formatToParts(date).flatMap((part) => {
+          if (!simulateHermesIos || part.type !== "timeZoneName") {
+            return [part];
+          }
+
+          const offset = part.value.match(/^(.*?)([+-])(\d+)$/);
+          // Hermes iOS splits GMT+2 and labels the trailing offset hour as another minute part.
+          return offset
+            ? [
+                { type: "timeZoneName", value: offset[1] },
+                { type: "literal", value: offset[2] },
+                { type: "minute", value: offset[3] },
+              ]
+            : [part];
+        }),
+    });
+    return formatter;
+  }
+
+  Intl.DateTimeFormat = HermesIosDateTimeFormat as unknown as typeof Intl.DateTimeFormat;
+  setSystemTime(new Date(SUMMER_INSTANT));
+
+  try {
+    const hermesModuleSpecifier = "./index?hermes-ios-named-offset-parts";
+    const hermesModule = await import(hermesModuleSpecifier);
+    await hermesModule.initializeAppDate({ language: "de", timeZone: "Europe/Zurich" });
+
+    const namedOffsetParts = new Intl.DateTimeFormat("en-US", {
+      day: "2-digit",
+      hour: "2-digit",
+      hour12: false,
+      minute: "2-digit",
+      month: "2-digit",
+      second: "2-digit",
+      timeZone: "Europe/Zurich",
+      timeZoneName: "short",
+      year: "numeric",
+    }).formatToParts(new Date(SUMMER_INSTANT));
+    expect(
+      namedOffsetParts.filter((part) => part.type === "minute").map((part) => part.value)
+    ).toEqual(["00", "2"]);
+
+    const now = hermesModule.AppDate.now();
+    expect(now.isValid()).toBe(true);
+    expect(Number.isFinite(now.toEpochMillis())).toBe(true);
+    expect(now.toEpochMillis()).toBe(SUMMER_EPOCH_MILLIS);
+    expect(now.format("YYYY-MM-DD HH:mm Z")).toBe("2026-07-15 17:00 +02:00");
+    expect(now.toUtcString()).toBe("2026-07-15T15:00:00+00:00");
+
+    const localDate = hermesModule.AppDate.fromDateString("2026-07-15");
+    expect(localDate.isValid()).toBe(true);
+    expect(localDate.format("YYYY-MM-DD HH:mm:ss")).toBe("2026-07-15 00:00:00");
+    expect(localDate.toUtcString()).toBe("2026-07-14T22:00:00+00:00");
+
+    const localTime = hermesModule.AppDate.fromLocalTime("09:30");
+    expect(localTime.isValid()).toBe(true);
+    expect(localTime.format("YYYY-MM-DD HH:mm:ss")).toBe("2026-07-15 09:30:00");
+  } finally {
+    simulateHermesIos = false;
+    Intl.DateTimeFormat = DateTimeFormat;
+    setSystemTime();
+  }
+});
+
 test("defaults to the resolved system timezone before initialization", () => {
   expect(AppDate.fromDateString("2024-10-10").timezone).toBe(dayjs.tz.guess() || "UTC");
 });
@@ -288,6 +365,10 @@ test("fromLocalTime", async () => {
   try {
     await configure();
     expect(AppDate.fromLocalTime("11:12").isValid()).toBe(true);
+
+    for (const time of ["25:00", "23:60", "-1:00", "14:30junk", "14:30:00"]) {
+      expect(AppDate.fromLocalTime(time).isValid()).toBe(false);
+    }
   } finally {
     setSystemTime();
     await configure();
@@ -444,13 +525,16 @@ describe("format", () => {
     expect(date.format("TQ")).toBe("TQ");
   });
 
-  test("keeps the default template valid", async () => {
+  test("emits a parseable timestamp from the default template", async () => {
     await configure();
-    const date = AppDate.fromDateString("2020-10-24");
-    const expected = "2020-10-24T00:00:00+02:00Z";
+    const epochMillis = Date.parse("2026-07-15T15:00:00.123Z");
+    const date = AppDate.fromEpochMillis(epochMillis);
+    const formatted = date.format();
 
-    expect(date.format()).toBe(expected);
-    expect(date.format("YYYY-MM-DDTHH:mm:ssZ[Z]")).toBe(expected);
+    expect(formatted).toBe("2026-07-15T17:00:00+02:00");
+    expect(Number.isFinite(Date.parse(formatted))).toBe(true);
+    expect(Date.parse(formatted)).toBe(Math.floor(epochMillis / 1000) * 1000);
+    expect(date.toEpochMillis()).toBe(epochMillis);
   });
 });
 
@@ -940,6 +1024,23 @@ describe("fromUtcString", () => {
     }
   });
 
+  test("preserves valid ISO 8601 datetime offsets", async () => {
+    await configure();
+
+    const date = AppDate.fromUtcString("2026-01-13T10:30:00+05:45");
+
+    expect(date.isValid()).toBe(true);
+    expect(date.toUtcString()).toBe("2026-01-13T04:45:00+00:00");
+  });
+
+  test("rejects impossible dates instead of normalizing them", async () => {
+    await configure();
+
+    for (const date of ["2026-02-29", "2026-13-01", "2026-01-32", "2026-02-29T10:30:00Z"]) {
+      expect(AppDate.fromUtcString(date).isValid()).toBe(false);
+    }
+  });
+
   test("creates current date when no argument passed", async () => {
     setSystemTime(new Date("2024-01-15T12:00:00Z"));
 
@@ -978,6 +1079,29 @@ describe("fromUtcTime", () => {
     } finally {
       setSystemTime();
       await configure();
+    }
+  });
+
+  test("preserves valid numeric offsets", async () => {
+    setSystemTime(new Date("2024-01-15T12:00:00Z"));
+
+    try {
+      await configure();
+      const date = AppDate.fromUtcTime("14:30:00+02:00");
+
+      expect(date.isValid()).toBe(true);
+      expect(date.toUtcTime()).toBe("12:30:00+00:00");
+    } finally {
+      setSystemTime();
+      await configure();
+    }
+  });
+
+  test("rejects impossible times and offsets instead of normalizing them", async () => {
+    await configure();
+
+    for (const time of ["25:00:00+00:00", "23:60:00+00:00", "14:30:00+99:99"]) {
+      expect(AppDate.fromUtcTime(time).isValid()).toBe(false);
     }
   });
 });
