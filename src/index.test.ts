@@ -525,13 +525,16 @@ describe("format", () => {
     expect(date.format("TQ")).toBe("TQ");
   });
 
-  test("keeps the default template valid", async () => {
+  test("emits a parseable timestamp from the default template", async () => {
     await configure();
-    const date = AppDate.fromDateString("2020-10-24");
-    const expected = "2020-10-24T00:00:00+02:00Z";
+    const epochMillis = Date.parse("2026-07-15T15:00:00.123Z");
+    const date = AppDate.fromEpochMillis(epochMillis);
+    const formatted = date.format();
 
-    expect(date.format()).toBe(expected);
-    expect(date.format("YYYY-MM-DDTHH:mm:ssZ[Z]")).toBe(expected);
+    expect(formatted).toBe("2026-07-15T17:00:00+02:00");
+    expect(Number.isFinite(Date.parse(formatted))).toBe(true);
+    expect(Date.parse(formatted)).toBe(Math.floor(epochMillis / 1000) * 1000);
+    expect(date.toEpochMillis()).toBe(epochMillis);
   });
 });
 

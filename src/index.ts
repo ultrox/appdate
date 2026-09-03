@@ -102,6 +102,7 @@ type DateString = `${string}-${string}-${string}`; // YYYY-MM-DD
 const DATE_FORMAT = "YYYY-MM-DD";
 const LOCAL_TIME_FORMAT = "HH:mm";
 const UTC_TIME_FORMAT = "HH:mm:ssZ";
+const DEFAULT_FORMAT_TEMPLATE = "YYYY-MM-DDTHH:mm:ssZ";
 const MILLISECONDS_PER_MINUTE = 60_000;
 const ISO_DATETIME_PATTERN =
   /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-](\d{2}):(\d{2}))?$/;
@@ -755,9 +756,10 @@ export class AppDate {
    * @see {@link https://day.js.org/docs/en/display/format|Day.js format documentation}
    *
    * The template uses Day.js format tokens, such as dddd for the day of the week.
+   * Without a template, returns an ISO-compatible local timestamp precise to seconds.
    * @throws {Error} If the template contains an unescaped foreign E or y token.
    */
-  format(template: FormatTemplate = "YYYY-MM-DDTHH:mm:ssZ[Z]") {
+  format(template: FormatTemplate = DEFAULT_FORMAT_TEMPLATE) {
     assertSupportedFormatTemplate(template);
     return this.dayjsDate.format(template);
   }
